@@ -6,6 +6,11 @@ import pandas as pd
 class DataExtraction(object):
 
     def __init__(self):
+        """
+        constructor. 
+        No recibe parametros y solo
+        establece variables usadas
+        """
         self.DFlis          = []
         self.Beta           = []
         self.BetaPC         = []
@@ -18,13 +23,17 @@ class DataExtraction(object):
         """
         self.files = lista_archivos
 
+
     def data_extraction(self):
         BetaPearsCoeff = self.BetaPC
         DFlis          = self.DFlis
+        Beta           = self.Beta
+        filelist       = self.files
+        print("Archivos a ocupar: \n{} ".format(filelist))
 
         for item in filelist:
 
-            DF = pd.read_table(item, engine = 'python')
+            DF = pd.read_table(item, engine = 'python', encoding="latin1")
             DF['Temperature [K]'] = DF['Temperature (°C)'] + 273.15
             DF['alpha'] = (DF['Weight (mg)'][0]-DF['Weight (mg)'])/(DF['Weight (mg)'][0]-DF['Weight (mg)'][DF.shape[0]-1])
 
