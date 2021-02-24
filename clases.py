@@ -11,14 +11,16 @@ class DataExtraction(object):
         Does not receive parameters 
         and ony establishes variables.
         """
-        self.DFlis          = []
-        self.Beta           = []
-        self.BetaPC         = []
-        self.files          = []
-        self.dadt   	    = []
-		self.T    	        = []
-		self.t  	        = []
-		self.Iso_convDF     = pd.DataFrame([],columns = []) 
+        self.DFlis      = []
+        self.Beta       = []
+        self.BetaPC     = []
+        self.files      = []
+        self.da_dt      = []
+	self.T          = []
+	self.t          = []
+	self.Iso_convDF = pd.DataFrame([],columns = []) 
+        self.AdvIsoDF   = pd.DataFrame([],columns=[])
+
 
     def set_datos(self, lista_archivos):
         """
@@ -67,11 +69,11 @@ class DataExtraction(object):
     	on the isoconversional principle
     	"""
     
-		dadt        = self.dadt
-		T           = self.T
-		t           = self.t
-		dflist      = self.DFlis
-	 	Iso_convDF  = self.Iso_convDF   
+	da_dt       = self.da_dt
+	T           = self.T
+	t           = self.t
+	dflist      = self.DFlis
+ 	Iso_convDF  = self.Iso_convDF   
  	   
     	dflist[-1] = np.round(dflist[-1].loc[(dflist[-1]['alpha'] >= 0.05) & (dflist[-1]['alpha'] <= 0.95)], decimals = 7) 
     	Iso_convDF['HR '+str(np.round(self.Beta[-1], decimals = 1)) + ' K/min'] = np.round(dflist[-1]['Temperature [K]'], decimals = 4)
@@ -102,15 +104,20 @@ class DataExtraction(object):
             t.append(tv)
     	Iso_convDF.index = dflist[-1]['alpha'].values     
 
-		colnames = Iso_convDF.columns.tolist()
-		colnames = colnames[1:] + colnames[0]
-		da_dt = da_dt[1:] + da_dt[0]
-		T = T[1:] + T[0]
-		t = t[1:] + t[0]
-		Iso_convDF = Iso_convDF[colnames]  
-		
-		self.dadt   	  = dadt
-		self.T      	  = T
-		self.t      	  = t
-	 	self.Iso_convDF   = Iso_convDF 	
+        colnames = Iso_convDF.columns.tolist()
+        colnames = colnames[1:] + colnames[0]
+        da_dt = da_dt[1:] + da_dt[0]
+        T = T[1:] + T[0]
+        t = t[1:] + t[0]
+        Iso_convDF = Iso_convDF[colnames]  
+        
+        self.da_dt   	  = da_dt
+        self.T      	  = T
+        self.t      	  = t
+        self.Iso_convDF   = Iso_convDF 	
 
+    def get_df_isoconv(self):
+        return self.Iso_convDF
+
+
+        
