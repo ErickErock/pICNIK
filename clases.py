@@ -181,7 +181,7 @@ class ActivationEnergy(object):
         self.E_FOW = []
         self.E_KAS = []
         self.E_vy  = []
-        self.E_vyz = []
+        self.E_Vyz = []
         self.Iso_convDF = iso_df
         self.Beta  = Beta
         self.logB = np.log(Beta)
@@ -240,12 +240,89 @@ class ActivationEnergy(object):
         return self.E_KAS
 
 
-    def vy(self):
+    def vy(self, bounds):
         """
+        Function omega
+         
         """
-        pass
+        E_vy       = self.E_vy
+        Tempdf     = self.Iso_convDF
+        Beta       = self.Beta
+        def omega(E, row):
+            x = E/(self.R*Tempdf.iloc[row])
+            omega_i = []
+            px = ((np.exp(-x))/x)*(((x**3)+(18*(x**2))+(88*x)+96)/((x**4)+(20*(x**3))+(120*(x**2))+(240*x)+120))
+            p_B = px/Beta
+            for j in range(len(Beta)):
+                y = p_B[j]*((np.sum(1/(p_B)))-(1/p_B[j]))
+                omega_i.append(y)
+            O = np.array(np.sum((omega_i)))
+            #ToDo: generar arreglo que contenga todos los valores O
+            #en lista omega
+            #self.omega = O
+            return O
+     
+        for k in range(len(Tempdf.index)):
+            E_vy.append(minimize_scalar(omega, args=(k),bounds=bounds, method = 'bounded').x)
 
-    def vyz(self):
+        self.E_vy = E_vy
+
+   
+    def get_omega(self):
         """
+        Getter for omega
         """
-        pass
+        return self.omega
+
+    def Evy(self):
+        """
+        Getter for E_vy
+        """
+        return self.E_vy
+
+    def vyz(self,bounds):
+        """
+        Method for E_vyz 
+        :returns calculation for E_vyz:
+        """
+        AdvIsoDF = self.Adv_IsoDF 
+        Beta     = self.Beta
+
+        def I(E,inf,up):
+            a=E/(self.R)
+            b=inf
+            c=up
+
+            return a*(sp.expi(-a/c)-sp.expi(-a/b)) + c*np.exp(-a/c) - b*np.exp(-a/b)
+        
+        
+        def adv_omega(E,rowi,Tempdf = AdvIsoDF):
+            """
+            Aux function
+            """
+            j = rowi
+            omega_i = []
+            I_x = []
+            for i in range(len(AdvIsoDF.columns)):
+                I_x.append(I(E,
+                             AdvIsoDF[AdvIsoDF.columns[i]][AdvIsoDF.index[j]],
+                             AdvIsoDF[AdvIsoDF.columns[i]][AdvIsoDF.index[j+1]]))
+            I_B = np.array(I_x)/Beta
+            
+            for k in range(len(Beta)):
+                y = I_B[k]*((np.sum(1/(I_B)))-(1/I_B[k]))
+                omega_i.append(y)
+            O = np.array(np.sum((omega_i)))
+            return O
+
+        E_Vyz = []
+        for k in range(len(AdvIsoDF.index)-1):
+            E_Vyz.append(minimize_scalar(adv_omega,bounds=bounds,args=(k), method = 'bounded').x)
+        self.E_Vyz = E_Vyz
+
+    def get_EVyz(self):
+        """
+        Getter for E_Vyz
+        """
+        return self.E_Vyz
+
