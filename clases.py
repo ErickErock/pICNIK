@@ -46,7 +46,8 @@ class DataExtraction(object):
 
         for item in filelist:
 
-            DF = pd.read_table(item, engine = 'python', encoding="latin1")
+            #ToDo: probar con utf8
+            DF = pd.read_csv(item,  encoding="latin1", sep='\t')
             DF['Temperature [K]'] = DF['Temperature (°C)'] + 273.15
             DF['alpha'] = (DF['Weight (mg)'][0]-DF['Weight (mg)'])/(DF['Weight (mg)'][0]-DF['Weight (mg)'][DF.shape[0]-1])
 
@@ -169,6 +170,56 @@ class DataExtraction(object):
         """
         return self.t
 
+    def get_valores(self):
+        return [self.get_df_isoconv(), 
+                self.get_adviso(),
+                self.get_dadt(),
+                self.get_t(),
+                self.get_beta()]
+
+    def save_df(self, E_FOW, E_KAS, E_vy, E_Vyz, dialect="xls" ):
+        """
+        Method to save dataframe with
+        values calculated by ActivationEnergy
+        """
+        Iso_convDF = self.Iso_convDF
+        dflist     = self.DFlis
+        Beta       = self.Beta
+        da_dt      = self.da_dt
+
+        DFreslis = []
+        for k in range(len(Beta)):
+            DF = pd.DataFrame([], columns=['Time [min]','Weight [mg]','Temperature [K]','alpha','da_dt'])
+            DF['Time [min]'] = dflist[k]['Time (min)'].values
+            DF['Weight [mg]'] = dflist[k]['Weight (mg)'].values
+            DF['Temperature [K]'] = dflist[k]['Temperature [K]'].values
+            DF['alpha'] = dflist[k]['alpha'].values
+            DF['da_dt'][0] = np.nan
+            DF['da_dt'][1:]=da_dt[k]
+
+            DFreslis.append(DF)
+
+        alps = Iso_convDF.index.values
+
+        DF_nrgy = pd.DataFrame([], columns = ['FOW','KAS','Vyazovkin','Adv. Vyazovkin'])
+        DF_nrgy['FOW']=E_FOW
+        DF_nrgy['KAS'] = E_KAS
+        DF_nrgy['Vyazovkin'] = E_vy
+        DF_nrgy['Adv. Vyazovkin'] = E_Vyz
+        DF_nrgy.index = alps
+
+        if(dialect=='xls'):
+            nombre = 'Activation_energies_results.xlsx'
+            with pd.ExcelWriter(nombre) as writer:
+                for i in range(len(DFreslis)):
+                    DFreslis[i].to_excel(writer, sheet_name='B ='+ str(np.round(Beta[i],decimals=1)) + 'K_min')
+                DF_nrgy.to_excel(writer, sheet_name='Act. Energies')    
+
+            print("Archivo {} escrito".format(nombre))
+        elif(dialect=='csv'):
+            pass
+        else:
+            print("Dialect not recognized")
 
 
 class ActivationEnergy(object):
@@ -210,7 +261,7 @@ class ActivationEnergy(object):
             num = np.sum((x-(np.mean(x)))*(y-(np.mean(y))))
             E_a_i = -(self.R/1.052)*(num/den)
             E_FOW.append(E_a_i)
-        self.E_FOW = E_FOW
+        self.E_FOW = np.array(E_FOW)
 
     def get_E_FOW(self):
         """
@@ -231,7 +282,7 @@ class ActivationEnergy(object):
             num = np.sum((x-(np.mean(x)))*(y-(np.mean(y))))
             E_a_i = -(self.R)*(num/den )
             E_KAS.append(E_a_i)
-        self.E_KAS = E_KAS
+        self.E_KAS = np.array(E_KAS)
 
     def get_E_KAS(self):
         """
@@ -239,44 +290,55 @@ class ActivationEnergy(object):
         """
         return self.E_KAS
 
+    def omega(self, E, row):
+        Tempdf     = self.Iso_convDF
+        Beta       = self.Beta
+
+        x = E/(self.R*Tempdf.iloc[row])
+        omega_i = []
+        px = ((np.exp(-x))/x)*(((x**3)+(18*(x**2))+(88*x)+96)/((x**4)+(20*(x**3))+(120*(x**2))+(240*x)+120))
+        p_B = px/Beta
+        for j in range(len(Beta)):
+            y = p_B[j]*((np.sum(1/(p_B)))-(1/p_B[j]))
+            omega_i.append(y)
+        O = np.array(np.sum((omega_i)))
+        #ToDo: generar arreglo que contenga todos los valores O
+        return O
+
+    def visualize_omega(self,row,N=1000):
+        """
+        Method to visualize omega function.
+        Bounds requiered from function vy o 
+        by bounds setter
+        """
+        bounds = self.bounds
+        A = np.linspace(bounds[0], bounds[1], N)
+        O = np.array([float(self.omega(A[i],row)) for i in range(len(A))])
+        return A, O
+
+    def set_bounds(self, bounds):
+        """
+        Setter for bounds variable
+        """
+        self.bounds = bounds
 
     def vy(self, bounds):
         """
         Function omega
          
         """
+        self.bounds = bounds 
         E_vy       = self.E_vy
         Tempdf     = self.Iso_convDF
-        Beta       = self.Beta
-        def omega(E, row):
-            x = E/(self.R*Tempdf.iloc[row])
-            omega_i = []
-            px = ((np.exp(-x))/x)*(((x**3)+(18*(x**2))+(88*x)+96)/((x**4)+(20*(x**3))+(120*(x**2))+(240*x)+120))
-            p_B = px/Beta
-            for j in range(len(Beta)):
-                y = p_B[j]*((np.sum(1/(p_B)))-(1/p_B[j]))
-                omega_i.append(y)
-            O = np.array(np.sum((omega_i)))
-            #ToDo: generar arreglo que contenga todos los valores O
-            #en lista omega
-            #self.omega = O
-            return O
-     
+        Beta       = self.Beta 
         for k in range(len(Tempdf.index)):
-            E_vy.append(minimize_scalar(omega, args=(k),bounds=bounds, method = 'bounded').x)
+            E_vy.append(minimize_scalar(self.omega, args=(k),bounds=bounds, method = 'bounded').x)
 
-        self.E_vy = E_vy
+        self.E_vy = np.array(E_vy)
 
-   
-    def get_omega(self):
+    def get_Evy(self):
         """
         Getter for omega
-        """
-        return self.omega
-
-    def Evy(self):
-        """
-        Getter for E_vy
         """
         return self.E_vy
 
@@ -318,7 +380,7 @@ class ActivationEnergy(object):
         E_Vyz = []
         for k in range(len(AdvIsoDF.index)-1):
             E_Vyz.append(minimize_scalar(adv_omega,bounds=bounds,args=(k), method = 'bounded').x)
-        self.E_Vyz = E_Vyz
+        self.E_Vyz = np.array(E_Vyz)
 
     def get_EVyz(self):
         """
