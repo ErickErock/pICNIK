@@ -6,16 +6,17 @@ from   scipy.optimize    import minimize_scalar
 import scipy.special     as     sp
 
 class DataExtraction(object):
-	"""class that manipulates raw data
-	to create lists and Data Frames 
-	that will be used to compute the 
-	Activation Energy
-	"""
+    """
+    class that manipulates raw data
+    to create lists and Data Frames 
+    that will be used to compute the 
+    Activation Energy
+    """
 
     def __init__(self):
         """
         Constructor. 
-        Does not receive parameters 
+        Does not receive parameters
         and only establishes variables.
         """
         self.DFlis      = [] 
@@ -27,7 +28,7 @@ class DataExtraction(object):
         self.t          = []
         self.Iso_convDF = pd.DataFrame([],columns = []) 
         self.AdvIsoDF   = pd.DataFrame([],columns=[])
-
+    
     def set_datos(self, lista_archivos):
         """
         Method to establish the file list
@@ -174,12 +175,12 @@ class DataExtraction(object):
         """
         return self.Beta
 
-	def get_betaC(self):
-		"""
-		Getter for the Beta
-		Pearson Coefficients
-		"""
-		return self.BetaPC
+    def get_betaPC(self):
+        """
+        Getter for the Beta
+        Pearson Coefficients
+        """
+        return self.BetaPC
 
     def get_dadt(self):
         """
@@ -194,11 +195,11 @@ class DataExtraction(object):
         return self.t
 
     def get_valores(self):
-		"""
-		Global getter for: Iso_convDF,
-		AdvIsoDF, da_dt, t and Beta; 
-		in that order.   
-		"""
+        """
+        Global getter for: Iso_convDF,
+        AdvIsoDF, da_dt, t and Beta; 
+        in that order.   
+        """
         return [self.get_df_isoconv(), 
                 self.get_adviso(),
                 self.get_dadt(),
@@ -229,23 +230,39 @@ class DataExtraction(object):
 
         alps = Iso_convDF.index.values
 
-        DF_nrgy = pd.DataFrame([], columns = ['FOW','KAS','Vyazovkin','Adv. Vyazovkin'])
+        DF_nrgy = pd.DataFrame([], columns = ['alpha','FOW','KAS','Vyazovkin','Adv. Vyazovkin'])
+        DF_nrgy['alpha']  = alps
         DF_nrgy['FOW']=E_FOW
         DF_nrgy['KAS'] = E_KAS
         DF_nrgy['Vyazovkin'] = E_vy
         DF_nrgy['Adv. Vyazovkin'] = E_Vyz
-        DF_nrgy.index = alps
 
         if(dialect=='xls'):
             nombre = 'Activation_energies_results.xlsx'
             with pd.ExcelWriter(nombre) as writer:
                 for i in range(len(DFreslis)):
-                    DFreslis[i].to_excel(writer, sheet_name='B ='+ str(np.round(Beta[i],decimals=1)) + 'K_min')
-                DF_nrgy.to_excel(writer, sheet_name='Act. Energies')    
+                    DFreslis[i].to_excel(writer, 
+                                         sheet_name='B ='+ str(np.round(Beta[i],decimals=1)) + 'K_min',
+                                         index=False)
+                DF_nrgy.to_excel(writer, sheet_name='Act. Energies',index=False)    
 
-            print("Archivo {} escrito".format(nombre))
+            print("Workseet {} ".format(nombre))
         elif(dialect=='csv'):
-            pass
+            print("Saving csvs\n")
+            for i in range(len(Beta)):
+                nombre = 'HR={0:0.3}_K_per_min.csv'.format(self.Beta[i])    
+                df = pd.DataFrame({'t':self.t[i], 
+                                   'T':self.T[i], 
+                                   'da_dt':self.da_dt[i]})
+                print("Saving {}".format(nombre))
+                df.to_csv(nombre, sep=',',index=False)
+            print("Saving activation energies")
+            DF_nrgy.to_csv('Activation_energies_results.csv', 
+                           encoding='utf8', 
+                           sep=',',
+                           index=False)
+
+
         else:
             print("Dialect not recognized")
 
@@ -334,10 +351,10 @@ class ActivationEnergy(object):
         return self.E_KAS
 
     def omega(self, E, row):
-		"""
-		Function to minimize according
-		to the Vyazovkin treatment.
-		"""
+        """
+        Function to minimize according
+        to the Vyazovkin treatment.
+        """
         Tempdf     = self.Iso_convDF
         Beta       = self.Beta
 
