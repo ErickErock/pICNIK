@@ -6,12 +6,17 @@ from   scipy.optimize    import minimize_scalar
 import scipy.special     as     sp
 
 class DataExtraction(object):
+	"""class that manipulates raw data
+	to create lists and Data Frames 
+	that will be used to compute the 
+	Activation Energy
+	"""
 
     def __init__(self):
         """
         Constructor. 
         Does not receive parameters 
-        and ony establishes variables.
+        and only establishes variables.
         """
         self.DFlis      = [] 
         self.Beta       = []
@@ -26,16 +31,18 @@ class DataExtraction(object):
     def set_datos(self, lista_archivos):
         """
         Method to establish the file list
-        for the extrator
+        for the extrator. The list must be 
+		in ascendent heating rate order.
         """
         self.files = lista_archivos
 
     def data_extraction(self):
         """
         Method to extract the data contained in the files
-        into a list of DataFrames. Adds a column
+        into a list of DataFrames. Adds two columns: one
         corresponding to the Temperature in Kelvin and
-        computes The heating rate (Beta) with 
+        other corresponding to the conversion ('alpha').
+        Also computes The heating rate ('Beta') with 
         its Pearson Coefficient.
         """
         BetaPearsCoeff = self.BetaPC
@@ -67,7 +74,11 @@ class DataExtraction(object):
     def isoconversional(self):
         """
         Method that builds a DataFrame based 
-        on the isoconversional principle
+        on the isoconversional principle by
+		building a function interpolated from
+		the data frame with least data points,
+		wich corresponds to te fila with least 
+		data points.
         """
 
         da_dt       = self.da_dt
@@ -119,13 +130,18 @@ class DataExtraction(object):
 
     def get_df_isoconv(self):
         """
-        getter dataframe isoconversional 
+        Getter dataframe isoconversional. 
         """
         return self.Iso_convDF
 
     def adv_isoconversional(self):
         """
-        Method advanced isoconversional 
+        Method that builds a DataFrame
+		based on the advanced Vyazovkin 
+		method. The index correspond to 
+		an equidistant set of data from 
+		the first calculated value in 
+		the first element of DFlis.  
         """
         dflist     = self.DFlis
         AdvIsoDF   = self.AdvIsoDF
@@ -158,6 +174,13 @@ class DataExtraction(object):
         """
         return self.Beta
 
+	def get_betaC(self):
+		"""
+		Getter for the Beta
+		Pearson Coefficients
+		"""
+		return self.BetaPC
+
     def get_dadt(self):
         """
         Getter for da_dt
@@ -171,6 +194,11 @@ class DataExtraction(object):
         return self.t
 
     def get_valores(self):
+		"""
+		Global getter for: Iso_convDF,
+		AdvIsoDF, da_dt, t and Beta; 
+		in that order.   
+		"""
         return [self.get_df_isoconv(), 
                 self.get_adviso(),
                 self.get_dadt(),
@@ -224,10 +252,20 @@ class DataExtraction(object):
 
 class ActivationEnergy(object):
     """
+	Class that uses the lists and
+	Data Frames generated with 
+	Dataextraction to compute 
+	Activation energy values based on 
+	four methods: FOW, KAS, Vyazovkin
+	and Advanced Vyazovkin. 
     """
 
     def __init__(self, iso_df, Beta, adv_df=None):
         """
+		Constructor. Receives the Isoconversional
+		Data Frame as first parameter, the list 'Beta'
+		as second parameter, and the Adv_Isoconversional
+		Data Frame as an optional third parameter.
         """
         self.E_FOW = []
         self.E_KAS = []
@@ -248,8 +286,9 @@ class ActivationEnergy(object):
 
     def FOW(self):
         """
-        FOW method
-
+        Method to compute the Activation 
+		Energy based on the Flynn-Osawa-Wall 
+		(FOW) treatment.
         """
         logB       = self.logB
         E_FOW      = self.E_FOW
@@ -271,7 +310,11 @@ class ActivationEnergy(object):
 
     def KAS(self):
         """
+        Method to compute the Activation 
+		Energy based on the 
+		Kissinger-Akahira-Sunose (KAS) treatment.
         """
+
         logB       = self.logB
         Iso_convDF = self.Iso_convDF
         E_KAS      = self.E_KAS
@@ -291,6 +334,10 @@ class ActivationEnergy(object):
         return self.E_KAS
 
     def omega(self, E, row):
+		"""
+		Function to minimize according
+		to the Vyazovkin treatment.
+		"""
         Tempdf     = self.Iso_convDF
         Beta       = self.Beta
 
@@ -324,9 +371,10 @@ class ActivationEnergy(object):
 
     def vy(self, bounds):
         """
-        Function omega
-         
+        Method to compute the Activation 
+		Energy based on the Vyazovkin treatment.
         """
+
         self.bounds = bounds 
         E_vy       = self.E_vy
         Tempdf     = self.Iso_convDF
@@ -338,15 +386,17 @@ class ActivationEnergy(object):
 
     def get_Evy(self):
         """
-        Getter for omega
+        Getter for E_Vy
         """
         return self.E_vy
 
     def vyz(self,bounds):
         """
-        Method for E_vyz 
-        :returns calculation for E_vyz:
+        Method to compute the Activation 
+		Energy based on the Advanced
+		Vyazovkin treatment.
         """
+
         AdvIsoDF = self.Adv_IsoDF 
         Beta     = self.Beta
 
@@ -360,7 +410,8 @@ class ActivationEnergy(object):
         
         def adv_omega(E,rowi,Tempdf = AdvIsoDF):
             """
-            Aux function
+            Function to minimize according
+			to the advanced Vyazovkin treatment
             """
             j = rowi
             omega_i = []
