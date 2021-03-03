@@ -193,6 +193,12 @@ class DataExtraction(object):
         Getter for t
         """
         return self.t
+    
+    def get_T(self):
+        """
+        Getter for T
+        """
+        return self.T
 
     def get_valores(self):
         """
@@ -207,7 +213,7 @@ class DataExtraction(object):
                 self.get_t(),
                 self.get_beta()]
 
-    def save_df(self, E_FOW, E_KAS, E_vy, E_Vyz, dialect="xls" ):
+    def save_df(self, E_FOW, E_KAS, E_vy, E_Vyz, dialect="xlsx" ):
         """
         Method to save dataframe with
         values calculated by ActivationEnergy
@@ -216,16 +222,17 @@ class DataExtraction(object):
         dflist     = self.DFlis
         Beta       = self.Beta
         da_dt      = self.da_dt
+        T          = self.T
+        t          = self.t
 
         DFreslis = []
         for k in range(len(Beta)):
-            DF = pd.DataFrame([], columns=['Time [min]','Weight [mg]','Temperature [K]','alpha','da_dt'])
-            DF['Time [min]'] = dflist[k]['Time (min)'].values
-            DF['Weight [mg]'] = dflist[k]['Weight (mg)'].values
-            DF['Temperature [K]'] = dflist[k]['Temperature [K]'].values
-            DF['alpha'] = dflist[k]['alpha'].values
-            DF['da_dt'][0] = np.nan
-            DF['da_dt'][1:]=da_dt[k]
+            DF = pd.DataFrame([], columns=['time [min]',
+                                           'Temperature [K]',
+                                           'da_dt'])
+            DF['time [min]'] = t[k]
+            DF['Temperature [K]'] = T[k]
+            DF['da_dt']=da_dt[k]
 
             DFreslis.append(DF)
 
@@ -238,7 +245,7 @@ class DataExtraction(object):
         DF_nrgy['Vyazovkin'] = E_vy
         DF_nrgy['Adv. Vyazovkin'] = E_Vyz
 
-        if(dialect=='xls'):
+        if(dialect=='xlsx'):
             nombre = 'Activation_energies_results.xlsx'
             with pd.ExcelWriter(nombre) as writer:
                 for i in range(len(DFreslis)):
@@ -252,9 +259,9 @@ class DataExtraction(object):
             print("Saving csvs\n")
             for i in range(len(Beta)):
                 nombre = 'HR={0:0.3}_K_per_min.csv'.format(self.Beta[i])    
-                df = pd.DataFrame({'t':self.t[i], 
-                                   'T':self.T[i], 
-                                   'da_dt':self.da_dt[i]})
+                df = pd.DataFrame({'t':t[i], 
+                                   'T':T[i], 
+                                   'da_dt':da_dt[i]})
                 print("Saving {}".format(nombre))
                 df.to_csv(nombre, sep=',',index=False)
             print("Saving activation energies")
@@ -370,6 +377,12 @@ class ActivationEnergy(object):
         #ToDo: generar arreglo que contenga todos los valores O
         return O
 
+    def set_bounds(self, bounds):
+        """
+        Setter for bounds variable
+        """
+        self.bounds = bounds
+
     def visualize_omega(self,row,N=1000):
         """
         Method to visualize omega function.
@@ -381,19 +394,12 @@ class ActivationEnergy(object):
         O = np.array([float(self.omega(A[i],row)) for i in range(len(A))])
         return A, O
 
-    def set_bounds(self, bounds):
-        """
-        Setter for bounds variable
-        """
-        self.bounds = bounds
 
     def vy(self, bounds):
         """
         Method to compute the Activation 
 		Energy based on the Vyazovkin treatment.
         """
-
-        self.bounds = bounds 
         E_vy       = self.E_vy
         Tempdf     = self.Iso_convDF
         Beta       = self.Beta 
