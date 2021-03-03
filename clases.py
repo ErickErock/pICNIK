@@ -203,6 +203,7 @@ class DataExtraction(object):
         return [self.get_df_isoconv(), 
                 self.get_adviso(),
                 self.get_dadt(),
+                self.get_T(),
                 self.get_t(),
                 self.get_beta()]
 
