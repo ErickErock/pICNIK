@@ -38,8 +38,10 @@ if __name__=='__main__':
     bounds = acten.set_bounds((0,300)) # user can delimit bounds for evaluating E with Vy and Adv_Vy methods
     print("The bounds for evaluating E are "+str(bounds))
     acten.visualize_omega(0,N=1000) # this function allows to evaluate if the bounds are relevant
-    acten.vy((0,300))
-    acten.vyz((0,300))
+    acten.vy((1,300))
+    acten.vyz((1,300))
+    DeltaAlpha = acten.DeltaAlpha()
+    print('The integration interval for the Advanced Vyazovkin is:' + str(DeltaAlpha))
 
     #Activation Energies
     E_FOW = acten.get_E_FOW()

@@ -456,6 +456,11 @@ class ActivationEnergy(object):
         for k in range(len(AdvIsoDF.index)-1):
             E_Vyz.append(minimize_scalar(adv_omega,bounds=bounds,args=(k), method = 'bounded').x)
         self.E_Vyz = np.array(E_Vyz)
+        
+    def DeltaAlpha(self):
+
+        return np.round(self.Adv_IsoDF.index.values[1] -
+                        self.Adv_IsoDF.index.values[0], decimals=5)
 
     def get_EVyz(self):
         """
