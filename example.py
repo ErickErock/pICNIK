@@ -35,11 +35,14 @@ if __name__=='__main__':
     acten = c.ActivationEnergy(df_iso, Beta, df_adv) 
     acten.FOW()
     acten.KAS()
-    bounds = acten.set_bounds((0,300)) # user can delimit bounds for evaluating E with Vy and Adv_Vy methods
+    acten.set_bounds((0,300)) # user can delimit bounds for evaluating E with Vy and Adv_Vy methods
+    bounds = acten.bounds()
     print("The bounds for evaluating E are "+str(bounds))
-    acten.visualize_omega(0,N=1000) # this function allows to evaluate if the bounds are relevant
-    acten.vy((1,300))
-    acten.vyz((1,300))
+    E, O = acten.visualize_omega(0) # this function allows to evaluate if the bounds are relevant. First, create the x(E) and y(O) values.
+    plt.plot(E,O) #then E vs O can be plotted to visualize the omega function
+    plt.show()
+    acten.vy(bounds)
+    acten.vyz(bounds)
     DeltaAlpha = acten.DeltaAlpha()
     print('The integration interval for the Advanced Vyazovkin is:' + str(DeltaAlpha))
 

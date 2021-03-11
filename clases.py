@@ -318,7 +318,7 @@ class ActivationEnergy(object):
         logB       = self.logB
         E_FOW      = self.E_FOW
         Iso_convDF = self.Iso_convDF
-        for i in range(0,Iso_convDF.shape[0]):  #Obtiene las energías de activación FOW
+        for i in range(0,Iso_convDF.shape[0]):  
             y = (logB)
             x = 1/(Iso_convDF.iloc[i].values)
             den = np.sum((x-(np.mean(x)))**2)
@@ -343,7 +343,7 @@ class ActivationEnergy(object):
         logB       = self.logB
         Iso_convDF = self.Iso_convDF
         E_KAS      = self.E_KAS
-        for i in range(0,Iso_convDF.shape[0]):      #Obtiene las energías de activación KAS
+        for i in range(0,Iso_convDF.shape[0]):     
             y = (logB)- np.log((Iso_convDF.iloc[i].values)**1.92)
             x = 1/(Iso_convDF.iloc[i].values)
             den = np.sum((x-(np.mean(x)))**2)
@@ -413,6 +413,18 @@ class ActivationEnergy(object):
         Getter for E_Vy
         """
         return self.E_vy
+        
+    def I(self, E, inf, up):
+        """
+        Temperature integral for the
+        Advanced Vyazovkin Treatment
+        """
+        
+        a=E/(self.R)
+        b=inf
+        c=up
+
+        return a*(sp.expi(-a/c)-sp.expi(-a/b)) + c*np.exp(-a/c) - b*np.exp(-a/b)
 
     def vyz(self,bounds):
         """
@@ -424,12 +436,6 @@ class ActivationEnergy(object):
         AdvIsoDF = self.Adv_IsoDF 
         Beta     = self.Beta
 
-        def I(E,inf,up):
-            a=E/(self.R)
-            b=inf
-            c=up
-
-            return a*(sp.expi(-a/c)-sp.expi(-a/b)) + c*np.exp(-a/c) - b*np.exp(-a/b)
         
         
         def adv_omega(E,rowi,Tempdf = AdvIsoDF):
@@ -441,7 +447,7 @@ class ActivationEnergy(object):
             omega_i = []
             I_x = []
             for i in range(len(AdvIsoDF.columns)):
-                I_x.append(I(E,
+                I_x.append(self.I(E,
                              AdvIsoDF[AdvIsoDF.columns[i]][AdvIsoDF.index[j]],
                              AdvIsoDF[AdvIsoDF.columns[i]][AdvIsoDF.index[j+1]]))
             I_B = np.array(I_x)/Beta
