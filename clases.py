@@ -36,7 +36,8 @@ class DataExtraction(object):
 		in ascendent heating rate order.
         """
         self.files = lista_archivos
-
+        print("Archivos a ocupar: \n{} ".format(filelist))
+        
     def data_extraction(self):
         """
         Method to extract the data contained in the files
@@ -50,7 +51,7 @@ class DataExtraction(object):
         DFlis          = self.DFlis
         Beta           = self.Beta
         filelist       = self.files
-        print("Archivos a ocupar: \n{} ".format(filelist))
+        
 
         for item in filelist:
 
@@ -382,6 +383,7 @@ class ActivationEnergy(object):
         Setter for bounds variable
         """
         self.bounds = bounds
+        return bounds
 
     def visualize_omega(self,row,N=1000):
         """
