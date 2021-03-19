@@ -10,35 +10,34 @@ if __name__=='__main__':
     #First,
     #Data extraction and preprocessing is made
     #with DataExtraction class as follows:
-    extractor = c.DataExtraction()
-    extractor.set_datos(files) #Needs the file list as parameter
-    extractor.data_extraction()
-    extractor.isoconversional()
-    extractor.adv_isoconversional()
-
-    #processed data 
-    df_iso = extractor.get_df_isoconv()
-    df_adv = extractor.get_adviso()
-    da_dt = extractor.get_dadt()
+    extractor = c.DataExtraction() #Creates the extractor object
+    extractor.set_data(files) #Needs the file list as parameter
+    extractor.data_extraction() #This method fills the internal variables: Beta, BetaCC and DFlis 
+    #The variables generated can be called as:
+    beta = extractor.get_beta()
+    betaCC = extractor.get_betaCC()
+    DFlis = extractor.get_DFlis()
+    extractor.isoconversional() #This method fills the internal variables: da_dt, T (for da_dt), t (for da_dt) and Iso_convDF
+    #Acces to generated data:
+    da_dt = extractor.get_dadt() 
     T = extractor.get_T()
     t = extractor.get_t()
-    Beta = extractor.Beta
-    #Or the hole set of data can 
-    #be gotten with
-    [df_iso, df_adv, da_dt,T,t,Beta] = extractor.get_valores()
+    df_iso = extractor.get_df_isoconv()
+    extractor.adv_isoconversional() #This method fills the AdvIsoDF internal variable
+    df_adv = extractor.get_adviso()
+    #Or the main data can be assigned with:
+    [df_iso, df_adv, da_dt,T,t,Beta] = extractor.get_values()
 
 
-    #Then, 
-    #Activation energy
-    #Computations are made by the
+    #Then, Activation energy
+    #Computations are made with the
     #ActivationEnergy class
     acten = c.ActivationEnergy(df_iso, Beta, df_adv) 
-    acten.FOW()
-    acten.KAS()
-    acten.set_bounds((0,300)) # user can delimit bounds for evaluating E with Vy and Adv_Vy methods
-    bounds = acten.bounds()
+    E_FOW = acten.FOW() #This method returns E_FOW
+    E_KAS = acten.KAS() #This method returns E_KAS
+    bounds = acten.set_bounds((1,300)) # user can delimit bounds for evaluating E with Vy and Adv_Vy methods
     print("The bounds for evaluating E are "+str(bounds))
-    E, O = acten.visualize_omega(0) # this function allows to evaluate if the bounds are relevant. First, create the x(E) and y(O) values.
+    E, O = acten.visualize_omega(0) # this function allows to evaluate if the bounds are relevant. First, creates the x (E) and y (O) values.
     plt.plot(E,O) #then E vs O can be plotted to visualize the omega function
     plt.show()
     acten.vy(bounds)

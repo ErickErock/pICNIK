@@ -21,7 +21,7 @@ class DataExtraction(object):
         """
         self.DFlis      = [] 
         self.Beta       = []
-        self.BetaPC     = []
+        self.BetaCC     = []
         self.files      = []
         self.da_dt      = []
         self.T          = []
@@ -29,14 +29,14 @@ class DataExtraction(object):
         self.Iso_convDF = pd.DataFrame([],columns = []) 
         self.AdvIsoDF   = pd.DataFrame([],columns=[])
     
-    def set_datos(self, lista_archivos):
+    def set_data(self, filelist):
         """
         Method to establish the file list
         for the extrator. The list must be 
-		in ascendent heating rate order.
+        in ascendent heating rate order.
         """
-        self.files = lista_archivos
-        print("Archivos a ocupar: \n{} ".format(filelist))
+        self.files = filelist
+        print("Files to be used: \n{} ".format(filelist))
         
     def data_extraction(self):
         """
@@ -47,7 +47,7 @@ class DataExtraction(object):
         Also computes The heating rate ('Beta') with 
         its Pearson Coefficient.
         """
-        BetaPearsCoeff = self.BetaPC
+        BetaCorrCoeff = self.BetaCC
         DFlis          = self.DFlis
         Beta           = self.Beta
         filelist       = self.files
@@ -66,12 +66,32 @@ class DataExtraction(object):
             num = np.sum((x-(np.mean(x)))*(y-(np.mean(y))))
             r = (num**2)/(np.sum((x-np.mean(x))**2)*(np.sum((y-np.mean(y))**2)))
 
-            BetaPearsCoeff.append(r)
+            BetaCorrCoeff.append(r)
             Beta.append(num/den )
             DFlis.append(DF)
-        self.BetaPC = BetaPearsCoeff
+        self.BetaCC = BetaCorrCoeff
         self.DFlis  = DFlis
         self.Beta   = Beta
+        
+    def get_beta(self):
+        """
+        Getter for Beta
+        """
+        return self.Beta
+
+    def get_betaCC(self):
+        """
+        Getter for the Beta
+        Pearson Coefficients
+        """
+        return self.BetaCC
+        
+    def get_DFlis(self):
+        """
+        Getter for the DataFrame
+        list
+        """
+        return self.DFlis
 
     def isoconversional(self):
         """
@@ -82,7 +102,7 @@ class DataExtraction(object):
 		wich corresponds to te fila with least 
 		data points.
         """
-
+        #ToDo: Hacer la interpolación sobre el tiempo
         da_dt       = self.da_dt
         T           = self.T
         t           = self.t
@@ -97,8 +117,8 @@ class DataExtraction(object):
         ti = []
         for r in range(len(dflist[-1]['alpha'].values)-1):
             da.append((dflist[-1]['alpha'].values[r+1]-dflist[-1]['alpha'].values[r])/(dflist[-1]['Time (min)'].values[r+1]-dflist[-1]['Time (min)'].values[r]))
-            Ti.append(dflist[-1]['Temperature [K]'].values[r])
-            ti.append(dflist[-1]['Time (min)'].values[r])
+            Ti.append((dflist[-1]['Temperature [K]'].values[r]+dflist[-1]['Temperature [K]'].values[r+1])/2)
+            ti.append((dflist[-1]['Time (min)'].values[r]+dflist[-1]['Time (min)'].values[r+1])/2)
         da_dt.append(da)
         T.append(Ti)
         t.append(ti)
@@ -111,8 +131,8 @@ class DataExtraction(object):
             tv = []
             for r in range(len(dflist[i]['alpha'].values)-1):
                 db.append((dflist[i]['alpha'].values[r+1]-dflist[i]['alpha'].values[r])/(dflist[i]['Time (min)'].values[r+1]-dflist[i]['Time (min)'].values[r]))
-                Tv.append(dflist[i]['Temperature [K]'].values[r])
-                tv.append(dflist[i]['Time (min)'].values[r])
+                Tv.append((dflist[i]['Temperature [K]'].values[r]+dflist[i]['Temperature [K]'].values[r+1])/2)
+                tv.append((dflist[i]['Time (min)'].values[r]+dflist[i]['Time (min)'].values[r+1])/2)
             da_dt.append(db)
             T.append(Tv)
             t.append(tv)
@@ -170,18 +190,6 @@ class DataExtraction(object):
         """
         return self.AdvIsoDF
 
-    def get_beta(self):
-        """
-        Getter for Beta
-        """
-        return self.Beta
-
-    def get_betaPC(self):
-        """
-        Getter for the Beta
-        Pearson Coefficients
-        """
-        return self.BetaPC
 
     def get_dadt(self):
         """
@@ -201,7 +209,7 @@ class DataExtraction(object):
         """
         return self.T
 
-    def get_valores(self):
+    def get_values(self):
         """
         Global getter for: Iso_convDF,
         AdvIsoDF, da_dt, t and Beta; 
@@ -327,11 +335,6 @@ class ActivationEnergy(object):
             E_a_i = -(self.R/1.052)*(num/den)
             E_FOW.append(E_a_i)
         self.E_FOW = np.array(E_FOW)
-
-    def get_E_FOW(self):
-        """
-        Getter for E_FOW
-        """
         return self.E_FOW
 
     def KAS(self):
@@ -352,11 +355,6 @@ class ActivationEnergy(object):
             E_a_i = -(self.R)*(num/den )
             E_KAS.append(E_a_i)
         self.E_KAS = np.array(E_KAS)
-
-    def get_E_KAS(self):
-        """
-        Getter for E_KAS
-        """
         return self.E_KAS
 
     def omega(self, E, row):
@@ -392,9 +390,9 @@ class ActivationEnergy(object):
         by bounds setter
         """
         bounds = self.bounds
-        A = np.linspace(bounds[0], bounds[1], N)
-        O = np.array([float(self.omega(A[i],row)) for i in range(len(A))])
-        return A, O
+        E = np.linspace(bounds[0], bounds[1], N)
+        O = np.array([float(self.omega(E[i],row)) for i in range(len(A))])
+        return E, O
 
 
     def vy(self, bounds):
@@ -409,11 +407,6 @@ class ActivationEnergy(object):
             E_vy.append(minimize_scalar(self.omega, args=(k),bounds=bounds, method = 'bounded').x)
 
         self.E_vy = np.array(E_vy)
-
-    def get_Evy(self):
-        """
-        Getter for E_Vy
-        """
         return self.E_vy
         
     def I(self, E, inf, up):
@@ -464,15 +457,11 @@ class ActivationEnergy(object):
         for k in range(len(AdvIsoDF.index)-1):
             E_Vyz.append(minimize_scalar(adv_omega,bounds=bounds,args=(k), method = 'bounded').x)
         self.E_Vyz = np.array(E_Vyz)
+        return self.E_Vyz
         
     def DeltaAlpha(self):
 
         return np.round(self.Adv_IsoDF.index.values[1] -
                         self.Adv_IsoDF.index.values[0], decimals=5)
 
-    def get_EVyz(self):
-        """
-        Getter for E_Vyz
-        """
-        return self.E_Vyz
 
