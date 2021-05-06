@@ -19,15 +19,17 @@ class DataExtraction(object):
         Does not receive parameters
         and only establishes variables.
         """
-        self.DFlis      = [] 
+        self.DFlis      = []  #ToDo:Change Dflis name for another more thermochemical
         self.Beta       = []
         self.BetaCC     = []
         self.files      = []
         self.da_dt      = []
         self.T          = []
         self.t          = []
-        self.Iso_convDF = pd.DataFrame([],columns = []) 
+        self.TempIsoDF  = pd.DataFrame([],columns = [])
+        self.timeIsoDF  = pd.DataFrame([],columns = []) 
         self.AdvIsoDF   = pd.DataFrame([],columns=[])
+        self.alpha      = []
     
     def set_data(self, filelist):
         """
@@ -56,9 +58,33 @@ class DataExtraction(object):
         for item in filelist:
 
             #ToDo: probar con utf8
-            DF = pd.read_csv(item,  encoding="latin1", sep='\t')
-            DF['Temperature [K]'] = DF['Temperature (°C)'] + 273.15
-            DF['alpha'] = (DF['Weight (mg)'][0]-DF['Weight (mg)'])/(DF['Weight (mg)'][0]-DF['Weight (mg)'][DF.shape[0]-1])
+            try: 
+                DF = pd.read_table(item, sep = '\t', encoding = 'latin_1')
+                DF['Temperature [K]'] = DF[DF.columns[1]] + 273.15
+                DF[r'$\alpha$'] = (DF[DF.columns[2]][0]-DF[DF.columns[2]])/(DF[DF.columns[2]][0]-DF[DF.columns[2]][DF.shape[0]-1])
+                da_dt = []
+                for r in range(len(DF.index)-1):
+                    try:
+                        da_dt.append(DF[r'$\alpha$'][r+1]-DF[r'$\alpha$'][r])/(DF['Time (min)'][r+1]-DF['Time (min)'][r])
+                    except TypeError:
+                        pass
+                DF[r'$d\alpha/dt$'] = DF['Time (min)']
+                DF[r'$d\alpha/dt$'][0] = np.nan
+                DF[r'$d\alpha/dt$'][1:] = da_dt  
+
+            except IndexError: 
+                DF = pd.read_table(item, sep = ',', encoding = 'latin_1')
+                DF['Temperature [K]'] = DF[DF.columns[1]] + 273.15
+                DF[r'$\alpha$'] = (DF[DF.columns[2]][0]-DF[DF.columns[2]])/(DF[DF.columns[2]][0]-DF[DF.columns[2]][DF.shape[0]-1])
+                da_dt = []
+                for r in range(len(DF.index)-1):
+                    try:
+                        da_dt.append(DF[r'$\alpha$'][r+1]-DF[r'$\alpha$'][r])/(DF['Time (min)'][r+1]-DF['Time (min)'][r])
+                    except TypeError:
+                        pass
+                DF[r'$d\alpha/dt$'] = DF['Time (min)']
+                DF[r'$d\alpha/dt$'][0] = np.nan
+                DF[r'$d\alpha/dt$'][1:] = da_dt  
 
             y = DF['Temperature [K]']
             x = DF['Time (min)']
@@ -102,53 +128,62 @@ class DataExtraction(object):
 		wich corresponds to te fila with least 
 		data points.
         """
-        #ToDo: Hacer la interpolación sobre el tiempo
+        alpha       = self.alpha
         da_dt       = self.da_dt
         T           = self.T
         t           = self.t
-        dflist      = self.DFlis
-        Iso_convDF  = self.Iso_convDF   
-       
-        dflist[-1] = np.round(dflist[-1].loc[(dflist[-1]['alpha'] >= 0.05) & (dflist[-1]['alpha'] <= 0.95)], decimals = 7) 
-        Iso_convDF['HR '+str(np.round(self.Beta[-1], decimals = 1)) + ' K/min'] = np.round(dflist[-1]['Temperature [K]'], decimals = 4)
-        alps = dflist[-1]['alpha'].values
-        da = []
-        Ti = []
-        ti = []
-        for r in range(len(dflist[-1]['alpha'].values)-1):
-            da.append((dflist[-1]['alpha'].values[r+1]-dflist[-1]['alpha'].values[r])/(dflist[-1]['Time (min)'].values[r+1]-dflist[-1]['Time (min)'].values[r]))
-            Ti.append((dflist[-1]['Temperature [K]'].values[r]+dflist[-1]['Temperature [K]'].values[r+1])/2)
-            ti.append((dflist[-1]['Time (min)'].values[r]+dflist[-1]['Time (min)'].values[r+1])/2)
-        da_dt.append(da)
-        T.append(Ti)
-        t.append(ti)
-        for i in range(0,len(dflist)-1): 
-            dflist[i] = np.round(dflist[i].loc[(dflist[i]['alpha'] > 0.05) & (dflist[i]['alpha'] < 0.95)], decimals=7)
-            inter_func = interp1d(dflist[i]['alpha'], dflist[i]['Temperature [K]'],kind='cubic', bounds_error=False, fill_value="extrapolate")
-            Iso_convDF['HR '+str(np.round(self.Beta[i], decimals = 1)) + ' K/min'] = np.round(inter_func(alps), decimals = 4)
-            db = []
-            Tv=[]
-            tv = []
-            for r in range(len(dflist[i]['alpha'].values)-1):
-                db.append((dflist[i]['alpha'].values[r+1]-dflist[i]['alpha'].values[r])/(dflist[i]['Time (min)'].values[r+1]-dflist[i]['Time (min)'].values[r]))
-                Tv.append((dflist[i]['Temperature [K]'].values[r]+dflist[i]['Temperature [K]'].values[r+1])/2)
-                tv.append((dflist[i]['Time (min)'].values[r]+dflist[i]['Time (min)'].values[r+1])/2)
-            da_dt.append(db)
-            T.append(Tv)
-            t.append(tv)
-        Iso_convDF.index = dflist[-1]['alpha'].values     
+        DFlis       = self.DFlis
+        TempIsoDF   = self.TempIsoDF 
+        timeIsoDF   = self.timeIsoDF  
+        Beta        = self.Beta
 
-        colnames = Iso_convDF.columns.tolist()
+        for i in range(len(DFlis)):
+            a = [DFlis[i][r'$\alpha$'].values[0]]
+            Temp = [DFlis[i]['Temperature [K]'].values[0]]
+            time = [DFlis[i]['Time (min)'].values[0]]
+            diff = [DFlis[i][r'$d\alpha/dt$'].values[1]] 
+            for j in range(len(DFlis[i][r'$\alpha$'].values)):
+                if DFlis[i][r'$\alpha$'].values[j] == a[-1]:
+                    pass
+                elif DFlis[i][r'$\alpha$'].values[j] > a[-1]:
+                    a.append(DFlis[i][r'$\alpha$'].values[j])
+                    Temp.append(DFlis[i]['Temperature [K]'].values[j])
+                    time.append(DFlis[i]['Time (min)'].values[j])
+                    diff.append(DFlis[i][r'$d\alpha/dt$'].values[j])
+            alpha.append(a)
+            T.append(Temp)
+            t.append(time)
+            da_dt.append(diff)
+
+        alps = np.array(alpha[-1])
+
+        TempIsoDF = pd.DataFrame()
+        TempIsoDF['HR '+str(np.round(Beta[-1], decimals = 1)) + ' K/min'] = np.round(np.array(T[-1]), decimals = 4)
+        for i in range(len(alpha)-1):
+            inter_func = interp1d(np.array(alpha[i]), np.array(T[i]), kind='cubic', bounds_error=False, fill_value="extrapolate")
+            TempIsoDF['HR '+str(np.round(Beta[i], decimals = 1)) + ' K/min'] = np.round(inter_func(alps), decimals = 4)
+        TempIsoDF.index = alpha[-1]
+        colnames = TempIsoDF.columns.tolist()
         colnames = colnames[1:] + colnames[:1]
-        da_dt = da_dt[1:] + da_dt[:1]
-        T = T[1:] + T[:1]
-        t = t[1:] + t[:1]
-        Iso_convDF = Iso_convDF[colnames]  
-        
+        TempIsoDF = TempIsoDF[colnames]
+
+
+        timeIsoDF = pd.DataFrame()
+        timeIsoDF['HR '+str(np.round(Beta[-1], decimals = 1)) + ' K/min'] = np.round(np.array(da_dt[-1]), decimals = 4)
+        for i in range(len(alpha)-1):
+            inter_func = interp1d(np.array(alpha[i]), np.array(da_dt[i]), kind='cubic', bounds_error=False, fill_value="extrapolate")
+            timeIsoDF['HR '+str(np.round(Beta[i], decimals = 1)) + ' K/min'] = np.round(inter_func(alps), decimals = 4)
+        timeIsoDF.index = alpha[-1]
+        colnames = timeIsoDF.columns.tolist()
+        colnames = colnames[1:] + colnames[:1]
+        timeIsoDF = timeIsoDF[colnames]
+
+
         self.da_dt   	  = da_dt
         self.T      	  = T
         self.t      	  = t
-        self.Iso_convDF   = Iso_convDF 	
+        self.TempIsoDF    = TempIsoDF 	
+        self.timeIsoDF    = timeIsoDF
 
     def get_df_isoconv(self):
         """
@@ -167,14 +202,14 @@ class DataExtraction(object):
         """
         dflist     = self.DFlis
         AdvIsoDF   = self.AdvIsoDF
-        Iso_convDF = self.Iso_convDF
+        TempIsoDF  = self.TempIsoDF
         Beta       = self.Beta
 
         
-        alps =  np.linspace(dflist[-1]['alpha'].values[0],dflist[-1]['alpha'].values[-1],Iso_convDF.shape[0]+1)
+        alps =  np.linspace(dflist[-1][r'$\alpha$'].values[0],dflist[-1][r'$\alpha$'].values[-1],TempIsoDF.shape[0]+1)
         for i in range(0,len(dflist)):
-            dflist[i] = np.round(dflist[i].loc[(dflist[i]['alpha'] > 0.05) & (dflist[i]['alpha'] < 0.95)], decimals=7)
-            inter_func = interp1d(dflist[i]['alpha'], 
+            dflist[i] = np.round(dflist[i].loc[(dflist[i][r'$\alpha$'] > 0.05) & (dflist[i][r'$\alpha$'] < 0.95)], decimals=7)
+            inter_func = interp1d(dflist[i][r'$\alpha$'], 
                                   dflist[i]['Temperature [K]'],
                                   kind='cubic', bounds_error=False, 
                                   fill_value="extrapolate")
@@ -227,7 +262,7 @@ class DataExtraction(object):
         Method to save dataframe with
         values calculated by ActivationEnergy
         """
-        Iso_convDF = self.Iso_convDF
+        IsoDF      = self.IsoDF
         dflist     = self.DFlis
         Beta       = self.Beta
         da_dt      = self.da_dt
@@ -245,7 +280,7 @@ class DataExtraction(object):
 
             DFreslis.append(DF)
 
-        alps = Iso_convDF.index.values
+        alps = IsoDF.index.values
 
         DF_nrgy = pd.DataFrame([], columns = ['alpha','FOW','KAS','Vyazovkin','Adv. Vyazovkin'])
         DF_nrgy['alpha']  = alps
@@ -305,7 +340,7 @@ class ActivationEnergy(object):
         self.E_KAS = []
         self.E_vy  = []
         self.E_Vyz = []
-        self.Iso_convDF = iso_df
+        self.IsoDF = iso_df
         self.Beta  = Beta
         self.logB = np.log(Beta)
         self.alpha = np.linspace(np.array(iso_df.index)[0], 
@@ -326,10 +361,10 @@ class ActivationEnergy(object):
         """
         logB       = self.logB
         E_FOW      = self.E_FOW
-        Iso_convDF = self.Iso_convDF
-        for i in range(0,Iso_convDF.shape[0]):  
+        IsoDF      = self.IsoDF
+        for i in range(0,IsoDF.shape[0]):  
             y = (logB)
-            x = 1/(Iso_convDF.iloc[i].values)
+            x = 1/(IsoDF.iloc[i].values)
             den = np.sum((x-(np.mean(x)))**2)
             num = np.sum((x-(np.mean(x)))*(y-(np.mean(y))))
             E_a_i = -(self.R/1.052)*(num/den)
@@ -345,11 +380,11 @@ class ActivationEnergy(object):
         """
 
         logB       = self.logB
-        Iso_convDF = self.Iso_convDF
+        IsoDF      = self.IsoDF
         E_KAS      = self.E_KAS
-        for i in range(0,Iso_convDF.shape[0]):     
-            y = (logB)- np.log((Iso_convDF.iloc[i].values)**1.92)
-            x = 1/(Iso_convDF.iloc[i].values)
+        for i in range(0,IsoDF.shape[0]):     
+            y = (logB)- np.log((IsoDF.iloc[i].values)**1.92)
+            x = 1/(IsoDF.iloc[i].values)
             den = np.sum((x-(np.mean(x)))**2)
             num = np.sum((x-(np.mean(x)))*(y-(np.mean(y))))
             E_a_i = -(self.R)*(num/den )
@@ -362,7 +397,7 @@ class ActivationEnergy(object):
         Function to minimize according
         to the Vyazovkin treatment.
         """
-        Tempdf     = self.Iso_convDF
+        Tempdf     = self.IsoDF
         Beta       = self.Beta
 
         x = E/(self.R*Tempdf.iloc[row])
@@ -373,7 +408,7 @@ class ActivationEnergy(object):
             y = p_B[j]*((np.sum(1/(p_B)))-(1/p_B[j]))
             omega_i.append(y)
         O = np.array(np.sum((omega_i)))
-        #ToDo: generar arreglo que contenga todos los valores O
+        
         return O
 
     def set_bounds(self, bounds):
@@ -383,15 +418,15 @@ class ActivationEnergy(object):
         self.bounds = bounds
         return bounds
 
-    def visualize_omega(self,row,N=1000):
+    def visualize_omega(self,row,bounds=(1,300),N=1000):
         """
         Method to visualize omega function.
         Bounds requiered from function vy o 
         by bounds setter
         """
-        bounds = self.bounds
+        
         E = np.linspace(bounds[0], bounds[1], N)
-        O = np.array([float(self.omega(E[i],row)) for i in range(len(A))])
+        O = np.array([float(self.omega(E[i],row)) for i in range(len(E))])
         return E, O
 
 
@@ -401,7 +436,7 @@ class ActivationEnergy(object):
 		Energy based on the Vyazovkin treatment.
         """
         E_vy       = self.E_vy
-        Tempdf     = self.Iso_convDF
+        Tempdf     = self.IsoDF
         Beta       = self.Beta 
         for k in range(len(Tempdf.index)):
             E_vy.append(minimize_scalar(self.omega, args=(k),bounds=bounds, method = 'bounded').x)
