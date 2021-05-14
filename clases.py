@@ -4,7 +4,8 @@ import pandas as pd
 from   scipy.interpolate import interp1d
 from   scipy.optimize    import minimize_scalar
 import scipy.special     as     sp
-
+import matplotlib.pyplot as plt
+#-----------------------------------------------------------------------------------------------------------
 class DataExtraction(object):
     """
     class that manipulates raw data
@@ -12,25 +13,26 @@ class DataExtraction(object):
     that will be used to compute the 
     Activation Energy
     """
-
     def __init__(self):
         """
         Constructor. 
         Does not receive parameters
         and only establishes variables.
         """
-        self.DFlis      = []  #ToDo:Change Dflis name for another more thermochemical
-        self.Beta       = []
-        self.BetaCC     = []
-        self.files      = []
-        self.da_dt      = []
-        self.T          = []
-        self.t          = []
-        self.TempIsoDF  = pd.DataFrame([],columns = [])
-        self.timeIsoDF  = pd.DataFrame([],columns = []) 
-        self.AdvIsoDF   = pd.DataFrame([],columns=[])
-        self.alpha      = []
-    
+        self.DFlis          = []  #ToDo:Change Dflis name for another more thermochemical
+        self.Beta           = []
+        self.BetaCC         = []
+        self.files          = []
+        self.da_dt          = []
+        self.T              = []
+        self.t              = []
+        self.TempIsoDF      = pd.DataFrame()
+        self.timeIsoDF      = pd.DataFrame() 
+        self.diffIsoDF      = pd.DataFrame() 
+        self.TempAdvIsoDF   = pd.DataFrame()
+        self.timeAdvIsoDF   = pd.DataFrame()
+        self.alpha          = []
+#-----------------------------------------------------------------------------------------------------------    
     def set_data(self, filelist):
         """
         Method to establish the file list
@@ -39,7 +41,7 @@ class DataExtraction(object):
         """
         self.files = filelist
         print("Files to be used: \n{} ".format(filelist))
-        
+#-----------------------------------------------------------------------------------------------------------        
     def data_extraction(self):
         """
         Method to extract the data contained in the files
@@ -98,27 +100,27 @@ class DataExtraction(object):
         self.BetaCC = BetaCorrCoeff
         self.DFlis  = DFlis
         self.Beta   = Beta
-        
+#-----------------------------------------------------------------------------------------------------------        
     def get_beta(self):
         """
         Getter for Beta
         """
         return self.Beta
-
+#-----------------------------------------------------------------------------------------------------------
     def get_betaCC(self):
         """
         Getter for the Beta
         Pearson Coefficients
         """
         return self.BetaCC
-        
+ #-----------------------------------------------------------------------------------------------------------       
     def get_DFlis(self):
         """
         Getter for the DataFrame
         list
         """
         return self.DFlis
-
+#-----------------------------------------------------------------------------------------------------------
     def isoconversional(self):
         """
         Method that builds a DataFrame based 
@@ -135,6 +137,7 @@ class DataExtraction(object):
         DFlis       = self.DFlis
         TempIsoDF   = self.TempIsoDF 
         timeIsoDF   = self.timeIsoDF  
+        diffIsoDF   = self.diffIsoDF
         Beta        = self.Beta
 
         for i in range(len(DFlis)):
@@ -150,6 +153,8 @@ class DataExtraction(object):
                     Temp.append(DFlis[i]['Temperature [K]'].values[j])
                     time.append(DFlis[i]['Time (min)'].values[j])
                     diff.append(DFlis[i][r'$d\alpha/dt$'].values[j])
+                else:
+                    pass
             alpha.append(a)
             T.append(Temp)
             t.append(time)
@@ -157,26 +162,41 @@ class DataExtraction(object):
 
         alps = np.array(alpha[-1])
 
-        TempIsoDF = pd.DataFrame()
         TempIsoDF['HR '+str(np.round(Beta[-1], decimals = 1)) + ' K/min'] = np.round(np.array(T[-1]), decimals = 4)
-        for i in range(len(alpha)-1):
-            inter_func = interp1d(np.array(alpha[i]), np.array(T[i]), kind='cubic', bounds_error=False, fill_value="extrapolate")
-            TempIsoDF['HR '+str(np.round(Beta[i], decimals = 1)) + ' K/min'] = np.round(inter_func(alps), decimals = 4)
-        TempIsoDF.index = alpha[-1]
-        colnames = TempIsoDF.columns.tolist()
-        colnames = colnames[1:] + colnames[:1]
-        TempIsoDF = TempIsoDF[colnames]
-
-
-        timeIsoDF = pd.DataFrame()
-        timeIsoDF['HR '+str(np.round(Beta[-1], decimals = 1)) + ' K/min'] = np.round(np.array(da_dt[-1]), decimals = 4)
-        for i in range(len(alpha)-1):
-            inter_func = interp1d(np.array(alpha[i]), np.array(da_dt[i]), kind='cubic', bounds_error=False, fill_value="extrapolate")
+        timeIsoDF['HR '+str(np.round(Beta[-1], decimals = 1)) + ' K/min'] = np.round(np.array(t[-1]), decimals = 4)        
+        diffIsoDF['HR '+str(np.round(Beta[-1], decimals = 1)) + ' K/min'] = np.round(np.array(da_dt[-1]), decimals = 4)        
+        
+        for i in range(len(Beta)-1):
+            inter_func = interp1d(np.array(alpha[i]),
+                                  np.array(t[i]), 
+                                  kind='cubic', 
+                                  bounds_error=False, 
+                                  fill_value="extrapolate")
             timeIsoDF['HR '+str(np.round(Beta[i], decimals = 1)) + ' K/min'] = np.round(inter_func(alps), decimals = 4)
-        timeIsoDF.index = alpha[-1]
-        colnames = timeIsoDF.columns.tolist()
-        colnames = colnames[1:] + colnames[:1]
-        timeIsoDF = timeIsoDF[colnames]
+            
+            inter_func2 = interp1d(np.array(alpha[i]), 
+                                   np.array(T[i]), 
+                                   kind='cubic', 
+                                   bounds_error=False, 
+                                   fill_value="extrapolate")
+            TempIsoDF['HR '+str(np.round(Beta[i], decimals = 1)) + ' K/min'] = np.round(inter_func2(alps), decimals = 4)
+            
+            inter_func3 = interp1d(np.array(alpha[i]), 
+                                  np.array(da_dt[i]), 
+                                  kind='cubic', 
+                                  bounds_error=False, 
+                                  fill_value="extrapolate")
+            diffIsoDF['HR '+str(np.round(Beta[i], decimals = 1)) + ' K/min'] = np.round(inter_func3(alps), decimals = 4)
+          
+        colnames          = TempIsoDF.columns.tolist()
+        colnames          = colnames[1:] + colnames[:1]
+
+        TempIsoDF.index   = alpha[-1]
+        TempIsoDF         = TempIsoDF[colnames]
+        timeIsoDF.index   = alpha[-1]
+        timeIsoDF         = timeIsoDF[colnames]
+        diffIsoDF.index   = alpha[-1]
+        diffIsoDF         = diffIsoDF[colnames]
 
 
         self.da_dt   	  = da_dt
@@ -184,13 +204,14 @@ class DataExtraction(object):
         self.t      	  = t
         self.TempIsoDF    = TempIsoDF 	
         self.timeIsoDF    = timeIsoDF
-
+        self.diffIsoDF    = diffIsoDF
+#-----------------------------------------------------------------------------------------------------------
     def get_df_isoconv(self):
         """
         Getter dataframe isoconversional. 
         """
         return self.Iso_convDF
-
+#-----------------------------------------------------------------------------------------------------------
     def adv_isoconversional(self):
         """
         Method that builds a DataFrame
@@ -200,50 +221,57 @@ class DataExtraction(object):
 		the first calculated value in 
 		the first element of DFlis.  
         """
-        dflist     = self.DFlis
-        AdvIsoDF   = self.AdvIsoDF
-        TempIsoDF  = self.TempIsoDF
+        TempAdvIsoDF   = self.TempAdvIsoDF
+        timeAdvIsoDF   = self.timeAdvIsoDF        
         Beta       = self.Beta
-
+        alpha      = self.alpha
+        T          = self.T
+        t          = self.t
         
-        alps =  np.linspace(dflist[-1][r'$\alpha$'].values[0],dflist[-1][r'$\alpha$'].values[-1],TempIsoDF.shape[0]+1)
-        for i in range(0,len(dflist)):
-            dflist[i] = np.round(dflist[i].loc[(dflist[i][r'$\alpha$'] > 0.05) & (dflist[i][r'$\alpha$'] < 0.95)], decimals=7)
-            inter_func = interp1d(dflist[i][r'$\alpha$'], 
-                                  dflist[i]['Temperature [K]'],
+        alps = np.array(alpha[-1])
+        for i in range(0,len(Beta)):
+            inter_func = interp1d(alpha[i], 
+                                  T[i],
                                   kind='cubic', bounds_error=False, 
                                   fill_value="extrapolate")
-            AdvIsoDF['HR '+str(np.round(Beta[i], decimals = 0)) + ' K/min'] = np.round(inter_func(alps), decimals = 4)
-        AdvIsoDF.index = alps
+            TempAdvIsoDF['HR '+str(np.round(Beta[i], decimals = 0)) + ' K/min'] = np.round(inter_func(alps), decimals = 4)
 
-        self.AdvIsoDF = AdvIsoDF
-        self.DFlis    = dflist
-        
+            inter_func2 = interp1d(alpha[i], 
+                                  t[i],
+                                  kind='cubic', bounds_error=False, 
+                                  fill_value="extrapolate")
+            timeAdvIsoDF['HR '+str(np.round(Beta[i], decimals = 0)) + ' K/min'] = np.round(inter_func2(alps), decimals = 4)
+        timeAdvIsoDF.index = alps
+        TempAdvIsoDF.index = alps
+
+        self.TempAdvIsoDF = TempAdvIsoDF
+        self.timeAdvIsoDF = timeAdvIsoDF        
+#-----------------------------------------------------------------------------------------------------------        
     def get_adviso(self):
         """
         Getter for dataframe AdvIso
         """
         return self.AdvIsoDF
 
-
+#-----------------------------------------------------------------------------------------------------------
     def get_dadt(self):
         """
         Getter for da_dt
         """
         return self.da_dt
-
+#-----------------------------------------------------------------------------------------------------------
     def get_t(self):
         """
         Getter for t
         """
         return self.t
-    
+#-----------------------------------------------------------------------------------------------------------    
     def get_T(self):
         """
         Getter for T
         """
         return self.T
-
+#-----------------------------------------------------------------------------------------------------------
     def get_values(self):
         """
         Global getter for: Iso_convDF,
@@ -256,7 +284,7 @@ class DataExtraction(object):
                 self.get_T(),
                 self.get_t(),
                 self.get_beta()]
-
+#-----------------------------------------------------------------------------------------------------------
     def save_df(self, E_FOW, E_KAS, E_vy, E_Vyz, dialect="xlsx" ):
         """
         Method to save dataframe with
@@ -318,7 +346,9 @@ class DataExtraction(object):
         else:
             print("Dialect not recognized")
 
+#-----------------------------------------------------------------------------------------------------------
 
+#-----------------------------------------------------------------------------------------------------------
 class ActivationEnergy(object):
     """
 	Class that uses the lists and
@@ -328,7 +358,6 @@ class ActivationEnergy(object):
 	four methods: FOW, KAS, Vyazovkin
 	and Advanced Vyazovkin. 
     """
-
     def __init__(self, iso_df, Beta, adv_df=None):
         """
 		Constructor. Receives the Isoconversional
@@ -346,18 +375,18 @@ class ActivationEnergy(object):
         self.alpha = np.linspace(np.array(iso_df.index)[0], 
                                  np.array(iso_df.index)[-1],18000)
         if(adv_df is not None):
-            self.Adv_IsoDF = adv_df
+            self.AdvIsoDF = adv_df
         """ 
         Universal gas constant
         0.0083144626 kJ/(mol*K)
         """
         self.R =0.0083144626
-
+#-----------------------------------------------------------------------------------------------------------
     def FOW(self):
         """
         Method to compute the Activation 
-		Energy based on the Flynn-Osawa-Wall 
-		(FOW) treatment.
+	    Energy based on the Flynn-Osawa-Wall 
+	    (FOW) treatment.
         """
         logB       = self.logB
         E_FOW      = self.E_FOW
@@ -371,7 +400,7 @@ class ActivationEnergy(object):
             E_FOW.append(E_a_i)
         self.E_FOW = np.array(E_FOW)
         return self.E_FOW
-
+#-----------------------------------------------------------------------------------------------------------
     def KAS(self):
         """
         Method to compute the Activation 
@@ -391,7 +420,7 @@ class ActivationEnergy(object):
             E_KAS.append(E_a_i)
         self.E_KAS = np.array(E_KAS)
         return self.E_KAS
-
+#-----------------------------------------------------------------------------------------------------------
     def omega(self, E, row):
         """
         Function to minimize according
@@ -410,14 +439,14 @@ class ActivationEnergy(object):
         O = np.array(np.sum((omega_i)))
         
         return O
-
+#-----------------------------------------------------------------------------------------------------------
     def set_bounds(self, bounds):
         """
         Setter for bounds variable
         """
         self.bounds = bounds
         return bounds
-
+#-----------------------------------------------------------------------------------------------------------
     def visualize_omega(self,row,bounds=(1,300),N=1000):
         """
         Method to visualize omega function.
@@ -427,9 +456,13 @@ class ActivationEnergy(object):
         
         E = np.linspace(bounds[0], bounds[1], N)
         O = np.array([float(self.omega(E[i],row)) for i in range(len(E))])
-        return E, O
+        
+        plt.plot(E,O)
+        plt.ylabel(r'$\Omega\left(E_{\alpha}\right)$')
+        plt.xlabel(r'$E_{\alpha}$')
 
-
+        return plt.show()
+#-----------------------------------------------------------------------------------------------------------
     def vy(self, bounds):
         """
         Method to compute the Activation 
@@ -443,7 +476,7 @@ class ActivationEnergy(object):
 
         self.E_vy = np.array(E_vy)
         return self.E_vy
-        
+#-----------------------------------------------------------------------------------------------------------        
     def I(self, E, inf, up):
         """
         Temperature integral for the
@@ -455,7 +488,45 @@ class ActivationEnergy(object):
         c=up
 
         return a*(sp.expi(-a/c)-sp.expi(-a/b)) + c*np.exp(-a/c) - b*np.exp(-a/b)
-
+#-----------------------------------------------------------------------------------------------------------        
+    def adv_omega(self,E,rowi):
+        """
+        Function to minimize according
+        to the advanced Vyazovkin treatment
+        """
+        AdvIsoDF = self.AdvIsoDF
+        Beta     = self.Beta
+        j = rowi
+        omega_i = []
+        I_x = []
+        for i in range(len(AdvIsoDF.columns)):
+            I_x.append(self.I(E,
+                         AdvIsoDF[AdvIsoDF.columns[i]][AdvIsoDF.index[j]],
+                         AdvIsoDF[AdvIsoDF.columns[i]][AdvIsoDF.index[j+1]]))
+        I_B = np.array(I_x)/Beta
+        
+        for k in range(len(Beta)):
+            y = I_B[k]*((np.sum(1/(I_B)))-(1/I_B[k]))
+            omega_i.append(y)
+        O = np.array(np.sum((omega_i)))
+        return O
+#-----------------------------------------------------------------------------------------------------------
+    def visualize_advomega(self,row,bounds=(1,300),N=1000):
+        """
+        Method to visualize adv_omega function.
+        Bounds requiered from function vy o 
+        by bounds setter
+        """
+        
+        E = np.linspace(bounds[0], bounds[1], N)
+        O = np.array([float(self.adv_omega(E[i],row)) for i in range(len(E))])
+        
+        plt.plot(E,O)
+        plt.ylabel(r'$\Omega\left(E_{\alpha}\right)$')
+        plt.xlabel(r'$E_{\alpha}$')
+    
+        return plt.show()
+#-----------------------------------------------------------------------------------------------------------
     def vyz(self,bounds):
         """
         Method to compute the Activation 
@@ -466,37 +537,15 @@ class ActivationEnergy(object):
         AdvIsoDF = self.Adv_IsoDF 
         Beta     = self.Beta
 
-        
-        
-        def adv_omega(E,rowi,Tempdf = AdvIsoDF):
-            """
-            Function to minimize according
-			to the advanced Vyazovkin treatment
-            """
-            j = rowi
-            omega_i = []
-            I_x = []
-            for i in range(len(AdvIsoDF.columns)):
-                I_x.append(self.I(E,
-                             AdvIsoDF[AdvIsoDF.columns[i]][AdvIsoDF.index[j]],
-                             AdvIsoDF[AdvIsoDF.columns[i]][AdvIsoDF.index[j+1]]))
-            I_B = np.array(I_x)/Beta
-            
-            for k in range(len(Beta)):
-                y = I_B[k]*((np.sum(1/(I_B)))-(1/I_B[k]))
-                omega_i.append(y)
-            O = np.array(np.sum((omega_i)))
-            return O
-
         E_Vyz = []
         for k in range(len(AdvIsoDF.index)-1):
             E_Vyz.append(minimize_scalar(adv_omega,bounds=bounds,args=(k), method = 'bounded').x)
         self.E_Vyz = np.array(E_Vyz)
         return self.E_Vyz
-        
+#-----------------------------------------------------------------------------------------------------------        
     def DeltaAlpha(self):
 
-        return np.round(self.Adv_IsoDF.index.values[1] -
-                        self.Adv_IsoDF.index.values[0], decimals=5)
+        return np.round(self.AdvIsoDF.index.values[1] -
+                        self.AdvIsoDF.index.values[0], decimals=5)
 
 
