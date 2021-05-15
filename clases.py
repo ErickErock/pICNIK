@@ -52,10 +52,13 @@ class DataExtraction(object):
         its Pearson Coefficient.
         """
         BetaCorrCoeff = self.BetaCC
-        DFlis          = self.DFlis
-        Beta           = self.Beta
-        filelist       = self.files
-        
+        DFlis         = self.DFlis
+        Beta          = self.Beta
+        filelist      = self.files
+        alpha         = self.alpha
+        da_dt         = self.da_dt
+        T             = self.T
+        t             = self.t        
 
         for item in filelist:
 
@@ -96,10 +99,35 @@ class DataExtraction(object):
 
             BetaCorrCoeff.append(r)
             Beta.append(num/den )
-            DFlis.append(DF)
+            DFlis.append(DF)           
+
+        for i in range(len(DFlis)):
+            a = [DFlis[i][r'$\alpha$'].values[0]]
+            Temp = [DFlis[i]['Temperature [K]'].values[0]]
+            time = [DFlis[i]['Time (min)'].values[0]]
+            diff = [DFlis[i][r'$d\alpha/dt$'].values[1]] 
+            for j in range(len(DFlis[i][r'$\alpha$'].values)):
+                if DFlis[i][r'$\alpha$'].values[j] == a[-1]:
+                    pass
+                elif DFlis[i][r'$\alpha$'].values[j] > a[-1]:
+                    a.append(DFlis[i][r'$\alpha$'].values[j])
+                    Temp.append(DFlis[i]['Temperature [K]'].values[j])
+                    time.append(DFlis[i]['Time (min)'].values[j])
+                    diff.append(DFlis[i][r'$d\alpha/dt$'].values[j])
+                else:
+                    pass
+            alpha.append(a)
+            T.append(Temp)
+            t.append(time)
+            da_dt.append(diff)
+
         self.BetaCC = BetaCorrCoeff
         self.DFlis  = DFlis
         self.Beta   = Beta
+        self.da_dt  = da_dt
+        self.T      = T
+        self.t      = t
+        self.alpha  = alpha
 #-----------------------------------------------------------------------------------------------------------        
     def get_beta(self):
         """
@@ -140,26 +168,6 @@ class DataExtraction(object):
         diffIsoDF   = self.diffIsoDF
         Beta        = self.Beta
 
-        for i in range(len(DFlis)):
-            a = [DFlis[i][r'$\alpha$'].values[0]]
-            Temp = [DFlis[i]['Temperature [K]'].values[0]]
-            time = [DFlis[i]['Time (min)'].values[0]]
-            diff = [DFlis[i][r'$d\alpha/dt$'].values[1]] 
-            for j in range(len(DFlis[i][r'$\alpha$'].values)):
-                if DFlis[i][r'$\alpha$'].values[j] == a[-1]:
-                    pass
-                elif DFlis[i][r'$\alpha$'].values[j] > a[-1]:
-                    a.append(DFlis[i][r'$\alpha$'].values[j])
-                    Temp.append(DFlis[i]['Temperature [K]'].values[j])
-                    time.append(DFlis[i]['Time (min)'].values[j])
-                    diff.append(DFlis[i][r'$d\alpha/dt$'].values[j])
-                else:
-                    pass
-            alpha.append(a)
-            T.append(Temp)
-            t.append(time)
-            da_dt.append(diff)
-
         alps = np.array(alpha[-1])
 
         TempIsoDF['HR '+str(np.round(Beta[-1], decimals = 1)) + ' K/min'] = np.round(np.array(T[-1]), decimals = 4)
@@ -199,9 +207,6 @@ class DataExtraction(object):
         diffIsoDF         = diffIsoDF[colnames]
 
 
-        self.da_dt   	  = da_dt
-        self.T      	  = T
-        self.t      	  = t
         self.TempIsoDF    = TempIsoDF 	
         self.timeIsoDF    = timeIsoDF
         self.diffIsoDF    = diffIsoDF
@@ -534,12 +539,12 @@ class ActivationEnergy(object):
 		Vyazovkin treatment.
         """
 
-        AdvIsoDF = self.Adv_IsoDF 
+        AdvIsoDF = self.AdvIsoDF 
         Beta     = self.Beta
 
         E_Vyz = []
         for k in range(len(AdvIsoDF.index)-1):
-            E_Vyz.append(minimize_scalar(adv_omega,bounds=bounds,args=(k), method = 'bounded').x)
+            E_Vyz.append(minimize_scalar(self.adv_omega,bounds=bounds,args=(k), method = 'bounded').x)
         self.E_Vyz = np.array(E_Vyz)
         return self.E_Vyz
 #-----------------------------------------------------------------------------------------------------------        
