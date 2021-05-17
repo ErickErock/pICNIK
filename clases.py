@@ -67,32 +67,32 @@ class DataExtraction(object):
                 DF = pd.read_table(item, sep = '\t', encoding = 'latin_1')
                 DF['Temperature [K]'] = DF[DF.columns[1]] + 273.15
                 DF[r'$\alpha$'] = (DF[DF.columns[2]][0]-DF[DF.columns[2]])/(DF[DF.columns[2]][0]-DF[DF.columns[2]][DF.shape[0]-1])
-                da_dt = []
+                dadt = []
                 for r in range(len(DF.index)-1):
                     try:
-                        da_dt.append(DF[r'$\alpha$'][r+1]-DF[r'$\alpha$'][r])/(DF['Time (min)'][r+1]-DF['Time (min)'][r])
+                        dadt.append(DF[r'$\alpha$'][r+1]-DF[r'$\alpha$'][r])/(DF[DF.columns[0]][r+1]-DF[DF.columns[0]][r])
                     except TypeError:
                         pass
-                DF[r'$d\alpha/dt$'] = DF['Time (min)']
+                DF[r'$d\alpha/dt$'] = DF[DF.columns[0]]
                 DF[r'$d\alpha/dt$'][0] = np.nan
-                DF[r'$d\alpha/dt$'][1:] = da_dt  
+                DF[r'$d\alpha/dt$'][1:] = dadt  
 
             except IndexError: 
                 DF = pd.read_table(item, sep = ',', encoding = 'latin_1')
                 DF['Temperature [K]'] = DF[DF.columns[1]] + 273.15
                 DF[r'$\alpha$'] = (DF[DF.columns[2]][0]-DF[DF.columns[2]])/(DF[DF.columns[2]][0]-DF[DF.columns[2]][DF.shape[0]-1])
-                da_dt = []
+                dadt = []
                 for r in range(len(DF.index)-1):
                     try:
-                        da_dt.append(DF[r'$\alpha$'][r+1]-DF[r'$\alpha$'][r])/(DF['Time (min)'][r+1]-DF['Time (min)'][r])
+                        dadt.append(DF[r'$\alpha$'][r+1]-DF[r'$\alpha$'][r])/(DF[DF.columns[0]][r+1]-DF[DF.columns[0]][r])
                     except TypeError:
                         pass
-                DF[r'$d\alpha/dt$'] = DF['Time (min)']
+                DF[r'$d\alpha/dt$'] = DF[DF.columns[0]]
                 DF[r'$d\alpha/dt$'][0] = np.nan
-                DF[r'$d\alpha/dt$'][1:] = da_dt  
+                DF[r'$d\alpha/dt$'][1:] = dadt  
 
             y = DF['Temperature [K]']
-            x = DF['Time (min)']
+            x = DF[DF.columns[0]]
             den = np.sum((x-(np.mean(x)))**2)
             num = np.sum((x-(np.mean(x)))*(y-(np.mean(y))))
             r = (num**2)/(np.sum((x-np.mean(x))**2)*(np.sum((y-np.mean(y))**2)))
@@ -104,7 +104,7 @@ class DataExtraction(object):
         for i in range(len(DFlis)):
             a = [DFlis[i][r'$\alpha$'].values[0]]
             Temp = [DFlis[i]['Temperature [K]'].values[0]]
-            time = [DFlis[i]['Time (min)'].values[0]]
+            time = [DFlis[i][DFlis[i].columns[0]].values[0]]
             diff = [DFlis[i][r'$d\alpha/dt$'].values[1]] 
             for j in range(len(DFlis[i][r'$\alpha$'].values)):
                 if DFlis[i][r'$\alpha$'].values[j] == a[-1]:
@@ -112,7 +112,7 @@ class DataExtraction(object):
                 elif DFlis[i][r'$\alpha$'].values[j] > a[-1]:
                     a.append(DFlis[i][r'$\alpha$'].values[j])
                     Temp.append(DFlis[i]['Temperature [K]'].values[j])
-                    time.append(DFlis[i]['Time (min)'].values[j])
+                    time.append(DFlis[i][DFlis[i].columns[0]].values[j])
                     diff.append(DFlis[i][r'$d\alpha/dt$'].values[j])
                 else:
                     pass
@@ -215,7 +215,7 @@ class DataExtraction(object):
         """
         Getter dataframe isoconversional. 
         """
-        return self.Iso_convDF
+        return self.TempIsoDF
 #-----------------------------------------------------------------------------------------------------------
     def adv_isoconversional(self):
         """
@@ -228,10 +228,10 @@ class DataExtraction(object):
         """
         TempAdvIsoDF   = self.TempAdvIsoDF
         timeAdvIsoDF   = self.timeAdvIsoDF        
-        Beta       = self.Beta
-        alpha      = self.alpha
-        T          = self.T
-        t          = self.t
+        Beta           = self.Beta
+        alpha          = self.alpha
+        T              = self.T
+        t              = self.t
         
         alps = np.array(alpha[-1])
         for i in range(0,len(Beta)):
@@ -256,7 +256,7 @@ class DataExtraction(object):
         """
         Getter for dataframe AdvIso
         """
-        return self.AdvIsoDF
+        return self.TempAdvIsoDF
 
 #-----------------------------------------------------------------------------------------------------------
     def get_dadt(self):
@@ -295,7 +295,7 @@ class DataExtraction(object):
         Method to save dataframe with
         values calculated by ActivationEnergy
         """
-        IsoDF      = self.IsoDF
+        TempIsoDF  = self.TempIsoDF
         dflist     = self.DFlis
         Beta       = self.Beta
         da_dt      = self.da_dt
@@ -335,7 +335,7 @@ class DataExtraction(object):
         elif(dialect=='csv'):
             print("Saving csvs\n")
             for i in range(len(Beta)):
-                nombre = 'HR={0:0.3}_K_per_min.csv'.format(self.Beta[i])    
+                nombre = 'HR={0:0.3}_K_per_min.csv'.format(Beta[i])    
                 df = pd.DataFrame({'t':t[i], 
                                    'T':T[i], 
                                    'da_dt':da_dt[i]})
@@ -450,6 +450,7 @@ class ActivationEnergy(object):
         Setter for bounds variable
         """
         self.bounds = bounds
+        print("The bounds for evaluating E are "+str(bounds))
         return bounds
 #-----------------------------------------------------------------------------------------------------------
     def visualize_omega(self,row,bounds=(1,300),N=1000):
