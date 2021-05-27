@@ -153,10 +153,10 @@ class DataExtraction(object):
         """
         Method that builds a DataFrame based 
         on the isoconversional principle by
-		building a function interpolated from
-		the data frame with least data points,
-		wich corresponds to te fila with least 
-		data points.
+	building a function interpolated from
+	the data frame with least data points,
+	wich corresponds to te fila with least 
+	data points.
         """
         alpha       = self.alpha
         da_dt       = self.da_dt
@@ -426,24 +426,68 @@ class ActivationEnergy(object):
         self.E_KAS = np.array(E_KAS)
         return self.E_KAS
 #-----------------------------------------------------------------------------------------------------------
-    def omega(self, E, row):
-        """
-        Function to minimize according
-        to the Vyazovkin treatment.
-        """
-        Tempdf     = self.IsoDF
-        Beta       = self.Beta
+def omega(E,row,DF,Beta,method = 'senum-yang'):
+    
+    T0      = DF.iloc[0].values   
+    T       = DF.iloc[row].values
 
-        x = E/(self.R*Tempdf.iloc[row])
-        omega_i = []
-        px = ((np.exp(-x))/x)*(((x**3)+(18*(x**2))+(88*x)+96)/((x**4)+(20*(x**3))+(120*(x**2))+(240*x)+120))
-        p_B = px/Beta
+    def senum_yang(E):
+        x = E/(8.314*T)
+        num = x**3 + 18*(x**2) + 88*x + 96
+        den = x**4 + 20*(x**3) + 120*(x**2) +240*x +120
+        s_y = ((np.exp(-x))/x)*(num/den)
+        return (E/8.314)*s_y
+    
+    def trapezoid(E):
+        x0     = T0
+        y0     = np.exp(-E/(8.314*x0))
+        xf     = T
+        yf     = np.exp(-E/(8.314*xf))
+        tpz    = []
+        for i in range(len(T)):
+            tpz.append(integrate.trapezoid([y0[i],yf[i]],
+                                       [x0[i],xf[i]]))
+        return np.array(tpz)
+    
+    def quad(E):
+        
+        def integral(x,E):
+            return np.exp(-E/(8.314*x))
+            
+        quad    = []
+        for i in range(len(T)):
+            quad.append(integrate.quad(integral,
+                                      T0[i],
+                                      T[i],
+                                      args=(E))[0])
+        return np.array(quad)
+          
+    omega_i = []
+
+    if method == 'senum-yang':
+        p = senum_yang(E)
+        p_B = p/Beta
         for j in range(len(Beta)):
             y = p_B[j]*((np.sum(1/(p_B)))-(1/p_B[j]))
             omega_i.append(y)
-        O = np.array(np.sum((omega_i)))
-        
-        return O
+        return np.array(np.sum((omega_i)))
+
+    elif method == 'trapezoid':
+        p = trapezoid(E)
+        p_B = p/Beta
+        for j in range(len(Beta)):
+            y = p_B[j]*((np.sum(1/(p_B)))-(1/p_B[j]))
+            omega_i.append(y)
+        return np.array(np.sum((omega_i)))
+
+    elif method == 'quad':
+        p = quad(E)
+        p_B = p/Beta
+        for j in range(len(Beta)):
+            y = p_B[j]*((np.sum(1/(p_B)))-(1/p_B[j]))
+            omega_i.append(y)
+        return np.array(np.sum((omega_i)))
+
 #-----------------------------------------------------------------------------------------------------------
     def set_bounds(self, bounds):
         """
@@ -453,7 +497,7 @@ class ActivationEnergy(object):
         print("The bounds for evaluating E are "+str(bounds))
         return bounds
 #-----------------------------------------------------------------------------------------------------------
-    def visualize_omega(self,row,bounds=(1,300),N=1000):
+    def visualize_omega(self,row,bounds=(1,300),N=1000,method = 'senum-yang'):
         """
         Method to visualize omega function.
         Bounds requiered from function vy o 
@@ -461,7 +505,7 @@ class ActivationEnergy(object):
         """
         
         E = np.linspace(bounds[0], bounds[1], N)
-        O = np.array([float(self.omega(E[i],row)) for i in range(len(E))])
+        O = np.array([float(self.omega(E[i],row,DF,Beta,method = 'senum-yang')) for i in range(len(E))])
         
         plt.plot(E,O)
         plt.ylabel(r'$\Omega\left(E_{\alpha}\right)$')
@@ -483,7 +527,7 @@ class ActivationEnergy(object):
         self.E_vy = np.array(E_vy)
         return self.E_vy
 #-----------------------------------------------------------------------------------------------------------        
-    def I(self, E, inf, up):
+    def J(self, E, inf, up):
         """
         Temperature integral for the
         Advanced Vyazovkin Treatment
@@ -506,7 +550,7 @@ class ActivationEnergy(object):
         omega_i = []
         I_x = []
         for i in range(len(AdvIsoDF.columns)):
-            I_x.append(self.I(E,
+            I_x.append(self.J(E,
                          AdvIsoDF[AdvIsoDF.columns[i]][AdvIsoDF.index[j]],
                          AdvIsoDF[AdvIsoDF.columns[i]][AdvIsoDF.index[j+1]]))
         I_B = np.array(I_x)/Beta
