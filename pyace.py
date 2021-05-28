@@ -19,7 +19,7 @@ class DataExtraction(object):
         Does not receive parameters
         and only establishes variables.
         """
-        self.DFlis          = []  #ToDo:Change Dflis name for another more thermochemical
+        self.DFlis          = []  
         self.Beta           = []
         self.BetaCC         = []
         self.files          = []
@@ -49,7 +49,7 @@ class DataExtraction(object):
         corresponding to the Temperature in Kelvin and
         other corresponding to the conversion ('alpha').
         Also computes The heating rate ('Beta') with 
-        its Pearson Coefficient.
+        its Correlation Coefficient.
         """
         BetaCorrCoeff = self.BetaCC
         DFlis         = self.DFlis
@@ -153,10 +153,10 @@ class DataExtraction(object):
         """
         Method that builds a DataFrame based 
         on the isoconversional principle by
-	building a function interpolated from
-	the data frame with least data points,
-	wich corresponds to te fila with least 
-	data points.
+	    building a function interpolated from
+    	the data frame with least data points,
+    	which corresponds to te fila with least 
+	    data points.
         """
         alpha       = self.alpha
         da_dt       = self.da_dt
@@ -290,7 +290,7 @@ class DataExtraction(object):
                 self.get_t(),
                 self.get_beta()]
 #-----------------------------------------------------------------------------------------------------------
-    def save_df(self, E_FOW, E_KAS, E_vy, E_Vyz, dialect="xlsx" ):
+    def save_df(self, E_OFW, E_KAS, E_vy, E_Vyz, dialect="xlsx" ):
         """
         Method to save dataframe with
         values calculated by ActivationEnergy
@@ -315,9 +315,9 @@ class DataExtraction(object):
 
         alps = IsoDF.index.values
 
-        DF_nrgy = pd.DataFrame([], columns = ['alpha','FOW','KAS','Vyazovkin','Adv. Vyazovkin'])
+        DF_nrgy = pd.DataFrame([], columns = ['alpha','OFW','KAS','Vyazovkin','Adv. Vyazovkin'])
         DF_nrgy['alpha']  = alps
-        DF_nrgy['FOW']=E_FOW
+        DF_nrgy['OFW']=E_OFW
         DF_nrgy['KAS'] = E_KAS
         DF_nrgy['Vyazovkin'] = E_vy
         DF_nrgy['Adv. Vyazovkin'] = E_Vyz
@@ -370,7 +370,7 @@ class ActivationEnergy(object):
 		as second parameter, and the Adv_Isoconversional
 		Data Frame as an optional third parameter.
         """
-        self.E_FOW = []
+        self.E_OFW = []
         self.E_KAS = []
         self.E_vy  = []
         self.E_Vyz = []
@@ -387,14 +387,14 @@ class ActivationEnergy(object):
         """
         self.R =0.0083144626
 #-----------------------------------------------------------------------------------------------------------
-    def FOW(self):
+    def OFW(self):
         """
         Method to compute the Activation 
 	    Energy based on the Flynn-Osawa-Wall 
 	    (FOW) treatment.
         """
         logB       = self.logB
-        E_FOW      = self.E_FOW
+        E_OFW      = self.E_OFW
         IsoDF      = self.IsoDF
         for i in range(0,IsoDF.shape[0]):  
             y = (logB)
@@ -402,9 +402,9 @@ class ActivationEnergy(object):
             den = np.sum((x-(np.mean(x)))**2)
             num = np.sum((x-(np.mean(x)))*(y-(np.mean(y))))
             E_a_i = -(self.R/1.052)*(num/den)
-            E_FOW.append(E_a_i)
-        self.E_FOW = np.array(E_FOW)
-        return self.E_FOW
+            E_OFW.append(E_a_i)
+        self.E_OFW = np.array(E_OFW)
+        return self.E_OFW
 #-----------------------------------------------------------------------------------------------------------
     def KAS(self):
         """
