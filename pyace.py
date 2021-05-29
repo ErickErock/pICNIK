@@ -426,67 +426,67 @@ class ActivationEnergy(object):
         self.E_KAS = np.array(E_KAS)
         return self.E_KAS
 #-----------------------------------------------------------------------------------------------------------
-def omega(E,row,DF,Beta,method = 'senum-yang'):
+    def omega(self,E,row,DF,Beta,method = 'senum-yang'):
     
-    T0      = DF.iloc[0].values   
-    T       = DF.iloc[row].values
+        T0      = DF.iloc[0].values   
+        T       = DF.iloc[row].values
 
-    def senum_yang(E):
-        x = E/(8.314*T)
-        num = x**3 + 18*(x**2) + 88*x + 96
-        den = x**4 + 20*(x**3) + 120*(x**2) +240*x +120
-        s_y = ((np.exp(-x))/x)*(num/den)
-        return (E/8.314)*s_y
+        def senum_yang(E):
+            x = E/(self.R*T)
+            num = x**3 + 18*(x**2) + 88*x + 96
+            den = x**4 + 20*(x**3) + 120*(x**2) +240*x +120
+            s_y = ((np.exp(-x))/x)*(num/den)
+            return (E/self.R)*s_y
     
-    def trapezoid(E):
-        x0     = T0
-        y0     = np.exp(-E/(8.314*x0))
-        xf     = T
-        yf     = np.exp(-E/(8.314*xf))
-        tpz    = []
-        for i in range(len(T)):
-            tpz.append(integrate.trapezoid([y0[i],yf[i]],
-                                       [x0[i],xf[i]]))
-        return np.array(tpz)
+        def trapezoid(E):
+            x0     = T0
+            y0     = np.exp(-E/(self.R*x0))
+            xf     = T
+            yf     = np.exp(-E/(self.R*xf))
+            tpz    = []
+            for i in range(len(T)):
+                tpz.append(integrate.trapezoid([y0[i],yf[i]],
+                                               [x0[i],xf[i]]))
+            return np.array(tpz)
     
-    def quad(E):
+        def quad(E):
         
-        def integral(x,E):
-            return np.exp(-E/(8.314*x))
+            def integral(x,E):
+                return np.exp(-E/(self.R*x))
             
-        quad    = []
-        for i in range(len(T)):
-            quad.append(integrate.quad(integral,
-                                      T0[i],
-                                      T[i],
-                                      args=(E))[0])
-        return np.array(quad)
+            quad    = []
+            for i in range(len(T)):
+                quad.append(integrate.quad(integral,
+                                           T0[i],
+                                           T[i],
+                                           args=(E))[0])
+            return np.array(quad)
           
-    omega_i = []
+        omega_i = []
 
-    if method == 'senum-yang':
-        p = senum_yang(E)
-        p_B = p/Beta
-        for j in range(len(Beta)):
-            y = p_B[j]*((np.sum(1/(p_B)))-(1/p_B[j]))
-            omega_i.append(y)
-        return np.array(np.sum((omega_i)))
+        if method == 'senum-yang':
+            p = senum_yang(E)
+            p_B = p/Beta
+            for j in range(len(Beta)):
+                y = p_B[j]*((np.sum(1/(p_B)))-(1/p_B[j]))
+                omega_i.append(y)
+            return np.array(np.sum((omega_i)))
 
-    elif method == 'trapezoid':
-        p = trapezoid(E)
-        p_B = p/Beta
-        for j in range(len(Beta)):
-            y = p_B[j]*((np.sum(1/(p_B)))-(1/p_B[j]))
-            omega_i.append(y)
-        return np.array(np.sum((omega_i)))
+        elif method == 'trapezoid':
+            p = trapezoid(E)
+            p_B = p/Beta
+            for j in range(len(Beta)):
+                y = p_B[j]*((np.sum(1/(p_B)))-(1/p_B[j]))
+                omega_i.append(y)
+            return np.array(np.sum((omega_i)))
 
-    elif method == 'quad':
-        p = quad(E)
-        p_B = p/Beta
-        for j in range(len(Beta)):
-            y = p_B[j]*((np.sum(1/(p_B)))-(1/p_B[j]))
-            omega_i.append(y)
-        return np.array(np.sum((omega_i)))
+        elif method == 'quad':
+            p = quad(E)
+            p_B = p/Beta
+            for j in range(len(Beta)):
+                y = p_B[j]*((np.sum(1/(p_B)))-(1/p_B[j]))
+                omega_i.append(y)
+            return np.array(np.sum((omega_i)))
 
 #-----------------------------------------------------------------------------------------------------------
     def set_bounds(self, bounds):
@@ -505,15 +505,16 @@ def omega(E,row,DF,Beta,method = 'senum-yang'):
         """
         
         E = np.linspace(bounds[0], bounds[1], N)
-        O = np.array([float(self.omega(E[i],row,DF,Beta,method = 'senum-yang')) for i in range(len(E))])
-        
-        plt.plot(E,O)
+        O = np.array([float(self.omega(E[i],row,self.IsoDF,self.Beta,method = method)) for i in range(len(E))])
+        plt.style.use('seaborn')
+        plt.plot(E,O,color='teal',label=r'$\alpha$ = '+str(np.round(self.IsoDF.index[row],decimals=3)))        
         plt.ylabel(r'$\Omega\left(E_{\alpha}\right)$')
         plt.xlabel(r'$E_{\alpha}$')
+        plt.legend()
 
         return plt.show()
 #-----------------------------------------------------------------------------------------------------------
-    def vy(self, bounds):
+    def vy(self, bounds,method='senum-yang'):
         """
         Method to compute the Activation 
 		Energy based on the Vyazovkin treatment.
@@ -521,8 +522,9 @@ def omega(E,row,DF,Beta,method = 'senum-yang'):
         E_vy       = self.E_vy
         Tempdf     = self.IsoDF
         Beta       = self.Beta 
+        
         for k in range(len(Tempdf.index)):
-            E_vy.append(minimize_scalar(self.omega, args=(k),bounds=bounds, method = 'bounded').x)
+            E_vy.append(minimize_scalar(self.omega, args=(k,Tempdf,Beta,method),bounds=bounds, method = 'bounded').x)
 
         self.E_vy = np.array(E_vy)
         return self.E_vy
@@ -570,10 +572,11 @@ def omega(E,row,DF,Beta,method = 'senum-yang'):
         
         E = np.linspace(bounds[0], bounds[1], N)
         O = np.array([float(self.adv_omega(E[i],row)) for i in range(len(E))])
-        
-        plt.plot(E,O)
+        plt.style.use('seaborn')
+        plt.plot(E,O,color='teal',label=r'$\alpha$ = '+str(np.round(self.IsoDF.index[row],decimals=3)))
         plt.ylabel(r'$\Omega\left(E_{\alpha}\right)$')
         plt.xlabel(r'$E_{\alpha}$')
+        plt.legend()
     
         return plt.show()
 #-----------------------------------------------------------------------------------------------------------
