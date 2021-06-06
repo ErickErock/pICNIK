@@ -290,7 +290,7 @@ class DataExtraction(object):
                 self.get_t(),
                 self.get_beta()]
 #-----------------------------------------------------------------------------------------------------------
-    def save_df(self, E_OFW, E_KAS, E_vy, E_Vyz, dialect="xlsx" ):
+    def save_df(self, E_OFW=None, E_KAS=None, E_Vy=None, E_aVy=None, dialect="xlsx" ):
         """
         Method to save dataframe with
         values calculated by ActivationEnergy
@@ -313,14 +313,28 @@ class DataExtraction(object):
 
             DFreslis.append(DF)
 
-        alps = IsoDF.index.values
+        alps = TempIsoDF.index.values
 
-        DF_nrgy = pd.DataFrame([], columns = ['alpha','OFW','KAS','Vyazovkin','Adv. Vyazovkin'])
+        columns = ['alpha']
+        if np.any(E_OFW)!=None:
+            columns.append('OFW')
+        if np.any(E_KAS)!=None:
+            columns.append('KAS')
+        if np.any(E_Vy)!=None:
+            columns.append('Vyazovkin')
+        if np.any(E_aVy)!=None:
+            columns.append('adv.Vyazovkin')
+        DF_nrgy = pd.DataFrame([], columns = columns)
         DF_nrgy['alpha']  = alps
-        DF_nrgy['OFW']=E_OFW
-        DF_nrgy['KAS'] = E_KAS
-        DF_nrgy['Vyazovkin'] = E_vy
-        DF_nrgy['Adv. Vyazovkin'] = E_Vyz
+        if 'OFW' in columns:
+            DF_nrgy['OFW']=E_OFW
+        if 'KAS' in columns:
+            DF_nrgy['KAS'] = E_KAS
+        if 'Vyazovkin' in columns:
+            DF_nrgy['Vyazovkin'] = E_Vy
+        if 'adv.Vyazovkin' in columns:
+            DF_nrgy['adv.Vyazovkin'][0]  = np.nan
+            DF_nrgy['adv.Vyazovkin'][1:] = E_aVy
 
         if(dialect=='xlsx'):
             nombre = 'Activation_energies_results.xlsx'
@@ -372,8 +386,8 @@ class ActivationEnergy(object):
         """
         self.E_OFW = []
         self.E_KAS = []
-        self.E_vy  = []
-        self.E_Vyz = []
+        self.E_Vy  = []
+        self.E_aVy = []
         self.IsoDF = iso_df
         self.Beta  = Beta
         self.logB = np.log(Beta)
@@ -514,20 +528,20 @@ class ActivationEnergy(object):
 
         return plt.show()
 #-----------------------------------------------------------------------------------------------------------
-    def vy(self, bounds,method='senum-yang'):
+    def Vy(self, bounds,method='senum-yang'):
         """
         Method to compute the Activation 
 		Energy based on the Vyazovkin treatment.
         """
-        E_vy       = self.E_vy
+        E_Vy       = self.E_Vy
         Tempdf     = self.IsoDF
         Beta       = self.Beta 
         
         for k in range(len(Tempdf.index)):
-            E_vy.append(minimize_scalar(self.omega, args=(k,Tempdf,Beta,method),bounds=bounds, method = 'bounded').x)
+            E_Vy.append(minimize_scalar(self.omega, args=(k,Tempdf,Beta,method),bounds=bounds, method = 'bounded').x)
 
-        self.E_vy = np.array(E_vy)
-        return self.E_vy
+        self.E_Vy = np.array(E_Vy)
+        return self.E_Vy
 #-----------------------------------------------------------------------------------------------------------        
     def J(self, E, inf, up):
         """
@@ -566,7 +580,7 @@ class ActivationEnergy(object):
     def visualize_advomega(self,row,bounds=(1,300),N=1000):
         """
         Method to visualize adv_omega function.
-        Bounds requiered from function vy o 
+        Bounds requiered from function Vy o 
         by bounds setter
         """
         
@@ -580,7 +594,7 @@ class ActivationEnergy(object):
     
         return plt.show()
 #-----------------------------------------------------------------------------------------------------------
-    def vyz(self,bounds):
+    def aVy(self,bounds):
         """
         Method to compute the Activation 
 		Energy based on the Advanced
@@ -590,11 +604,11 @@ class ActivationEnergy(object):
         AdvIsoDF = self.AdvIsoDF 
         Beta     = self.Beta
 
-        E_Vyz = []
+        E_aVy = []
         for k in range(len(AdvIsoDF.index)-1):
-            E_Vyz.append(minimize_scalar(self.adv_omega,bounds=bounds,args=(k), method = 'bounded').x)
-        self.E_Vyz = np.array(E_Vyz)
-        return self.E_Vyz
+            E_aVy.append(minimize_scalar(self.adv_omega,bounds=bounds,args=(k), method = 'bounded').x)
+        self.E_aVy = np.array(E_aVy)
+        return self.E_aVy
 #-----------------------------------------------------------------------------------------------------------        
     def DeltaAlpha(self):
 
