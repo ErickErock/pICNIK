@@ -45,9 +45,10 @@ class DataExtraction(object):
     def data_extraction(self):
         """
         Method to extract the data contained in the files
-        into a list of DataFrames. Adds two columns: one
+        into a list of DataFrames. Adds three columns: one
         corresponding to the Temperature in Kelvin and
-        other corresponding to the conversion ('alpha').
+        other corresponding to the conversion ('alpha')
+        and a third for d(alpha)/dt.
         Also computes The heating rate ('Beta') with 
         its Correlation Coefficient.
         """
@@ -239,13 +240,13 @@ class DataExtraction(object):
                                   T[i],
                                   kind='cubic', bounds_error=False, 
                                   fill_value="extrapolate")
-            TempAdvIsoDF['HR '+str(np.round(Beta[i], decimals = 0)) + ' K/min'] = np.round(inter_func(alps), decimals = 4)
+            TempAdvIsoDF['HR '+str(np.round(Beta[i], decimals = 1)) + ' K/min'] = np.round(inter_func(alps), decimals = 4)
 
             inter_func2 = interp1d(alpha[i], 
                                   t[i],
                                   kind='cubic', bounds_error=False, 
                                   fill_value="extrapolate")
-            timeAdvIsoDF['HR '+str(np.round(Beta[i], decimals = 0)) + ' K/min'] = np.round(inter_func2(alps), decimals = 4)
+            timeAdvIsoDF['HR '+str(np.round(Beta[i], decimals = 1)) + ' K/min'] = np.round(inter_func2(alps), decimals = 4)
         timeAdvIsoDF.index = alps
         TempAdvIsoDF.index = alps
 
@@ -391,8 +392,7 @@ class ActivationEnergy(object):
         self.IsoDF = iso_df
         self.Beta  = Beta
         self.logB = np.log(Beta)
-        self.alpha = np.linspace(np.array(iso_df.index)[0], 
-                                 np.array(iso_df.index)[-1],18000)
+
         if(adv_df is not None):
             self.AdvIsoDF = adv_df
         """ 
@@ -404,8 +404,8 @@ class ActivationEnergy(object):
     def OFW(self):
         """
         Method to compute the Activation 
-	    Energy based on the Flynn-Osawa-Wall 
-	    (FOW) treatment.
+	    Energy based on the Osawa-Flynn-Wall 
+	    (OFW) treatment.
         """
         logB       = self.logB
         E_OFW      = self.E_OFW
