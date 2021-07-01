@@ -19,19 +19,20 @@ class DataExtraction(object):
         Does not receive parameters
         and only establishes variables.
         """
-        self.DFlis          = []  
-        self.Beta           = []
-        self.BetaCC         = []
-        self.files          = []
-        self.da_dt          = []
-        self.T              = []
-        self.t              = []
-        self.TempIsoDF      = pd.DataFrame()
-        self.timeIsoDF      = pd.DataFrame() 
-        self.diffIsoDF      = pd.DataFrame() 
-        self.TempAdvIsoDF   = pd.DataFrame()
-        self.timeAdvIsoDF   = pd.DataFrame()
-        self.alpha          = []
+        self.DFlis          = []              #list of DataFrames containing data
+        self.Beta           = []              #list of heating rates
+        self.BetaCC         = []              #list of correlation coefficient for T vs t
+        self.files          = []              #list of files containing raw data
+        self.da_dt          = []              #list of experimental conversion rates 
+        self.T              = []              #list of experimental temperature
+        self.t              = []              #list off experimental time
+        self.TempIsoDF      = pd.DataFrame()  #Isoconversional temperature DataFrame
+        self.timeIsoDF      = pd.DataFrame()  #Isoconversional time DataFrame
+        self.diffIsoDF      = pd.DataFrame()  #Isoconversional conversion rate DataFrame
+        self.TempAdvIsoDF   = pd.DataFrame()  #Advanced isoconversional temperature DataFrame
+        self.timeAdvIsoDF   = pd.DataFrame()  #Advanced isoconversional time DataFrame
+        self.alpha          = []              #list of experimental conversion
+        self.d_a            = 0.00001               #value of alpha step for aVy method
 #-----------------------------------------------------------------------------------------------------------    
     def set_data(self, filelist):
         """
@@ -42,7 +43,7 @@ class DataExtraction(object):
         self.files = filelist
         print("Files to be used: \n{} ".format(filelist))
 #-----------------------------------------------------------------------------------------------------------        
-    def data_extraction(self):
+    def data_extraction(self,encoding='utf8'):
         """
         Method to extract the data contained in the files
         into a list of DataFrames. Adds three columns: one
@@ -65,7 +66,7 @@ class DataExtraction(object):
 
             #ToDo: probar con utf8
             try: 
-                DF = pd.read_table(item, sep = '\t', encoding = 'latin_1')
+                DF = pd.read_table(item, sep = '\t', encoding = encoding)
                 DF['Temperature [K]'] = DF[DF.columns[1]] + 273.15
                 DF[r'$\alpha$'] = (DF[DF.columns[2]][0]-DF[DF.columns[2]])/(DF[DF.columns[2]][0]-DF[DF.columns[2]][DF.shape[0]-1])
                 dadt = []
@@ -79,7 +80,7 @@ class DataExtraction(object):
                 DF[r'$d\alpha/dt$'][1:] = dadt  
 
             except IndexError: 
-                DF = pd.read_table(item, sep = ',', encoding = 'latin_1')
+                DF = pd.read_table(item, sep = ',', encoding = encoding)
                 DF['Temperature [K]'] = DF[DF.columns[1]] + 273.15
                 DF[r'$\alpha$'] = (DF[DF.columns[2]][0]-DF[DF.columns[2]])/(DF[DF.columns[2]][0]-DF[DF.columns[2]][DF.shape[0]-1])
                 dadt = []
@@ -218,7 +219,7 @@ class DataExtraction(object):
         """
         return self.TempIsoDF
 #-----------------------------------------------------------------------------------------------------------
-    def adv_isoconversional(self):
+    def adv_isoconversional(self, method='points', N = 1000, d_a = 0.00001):
         """
         Method that builds a DataFrame
 		based on the advanced Vyazovkin 
@@ -232,9 +233,15 @@ class DataExtraction(object):
         Beta           = self.Beta
         alpha          = self.alpha
         T              = self.T
-        t              = self.t
-        
-        alps = np.array(alpha[-1])
+        t              = self.t    
+  
+        if method == 'points':
+            alps, d_a = np.linspace(alpha[-1][0],alpha[-1][-1],N,retstep=True)
+        elif method == 'interval':
+            alps = np.arange(alpha[-1][0],alpha[-1][-1],d_a)
+        else:
+            raise ValueError('Method not recognized')
+
         for i in range(0,len(Beta)):
             inter_func = interp1d(alpha[i], 
                                   T[i],
@@ -250,6 +257,7 @@ class DataExtraction(object):
         timeAdvIsoDF.index = alps
         TempAdvIsoDF.index = alps
 
+        self.d_a          = d_a
         self.TempAdvIsoDF = TempAdvIsoDF
         self.timeAdvIsoDF = timeAdvIsoDF        
 #-----------------------------------------------------------------------------------------------------------        
@@ -610,9 +618,4 @@ class ActivationEnergy(object):
         self.E_aVy = np.array(E_aVy)
         return self.E_aVy
 #-----------------------------------------------------------------------------------------------------------        
-    def DeltaAlpha(self):
-
-        return np.round(self.AdvIsoDF.index.values[1] -
-                        self.AdvIsoDF.index.values[0], decimals=5)
-
 
