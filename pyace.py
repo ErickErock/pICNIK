@@ -64,7 +64,6 @@ class DataExtraction(object):
 
         for item in filelist:
 
-            #ToDo: probar con utf8
             try: 
                 DF = pd.read_table(item, sep = '\t', encoding = encoding)
                 DF['Temperature [K]'] = DF[DF.columns[1]] + 273.15
@@ -118,10 +117,10 @@ class DataExtraction(object):
                     diff.append(DFlis[i][r'$d\alpha/dt$'].values[j])
                 else:
                     pass
-            alpha.append(a)
-            T.append(Temp)
-            t.append(time)
-            da_dt.append(diff)
+            alpha.append(np.array(a))
+            T.append(np.array(Temp))
+            t.append(np.array(time))
+            da_dt.append(np.array(diff))
 
         self.BetaCC = BetaCorrCoeff
         self.DFlis  = DFlis
@@ -165,37 +164,37 @@ class DataExtraction(object):
         T           = self.T
         t           = self.t
         DFlis       = self.DFlis
-        TempIsoDF   = self.TempIsoDF 
-        timeIsoDF   = self.timeIsoDF  
-        diffIsoDF   = self.diffIsoDF
+        TempIsoDF   = pd.DataFrame() 
+        timeIsoDF   = pd.DataFrame()  
+        diffIsoDF   = pd.DataFrame()
         Beta        = self.Beta
 
         alps = np.array(alpha[-1])
 
-        TempIsoDF['HR '+str(np.round(Beta[-1], decimals = 1)) + ' K/min'] = np.round(np.array(T[-1]), decimals = 4)
-        timeIsoDF['HR '+str(np.round(Beta[-1], decimals = 1)) + ' K/min'] = np.round(np.array(t[-1]), decimals = 4)        
-        diffIsoDF['HR '+str(np.round(Beta[-1], decimals = 1)) + ' K/min'] = np.round(np.array(da_dt[-1]), decimals = 4)        
+        TempIsoDF['HR '+str(np.round(Beta[-1], decimals = 1)) + ' K/min'] = np.round(T[-1], decimals = 4)
+        timeIsoDF['HR '+str(np.round(Beta[-1], decimals = 1)) + ' K/min'] = np.round(t[-1], decimals = 4)        
+        diffIsoDF['HR '+str(np.round(Beta[-1], decimals = 1)) + ' K/min'] = np.round(da_dt[-1], decimals = 4)        
         
         for i in range(len(Beta)-1):
-            inter_func = interp1d(np.array(alpha[i]),
-                                  np.array(t[i]), 
+            inter_func = interp1d(alpha[i],
+                                  t[i], 
                                   kind='cubic', 
                                   bounds_error=False, 
                                   fill_value="extrapolate")
             timeIsoDF['HR '+str(np.round(Beta[i], decimals = 1)) + ' K/min'] = np.round(inter_func(alps), decimals = 4)
             
-            inter_func2 = interp1d(np.array(alpha[i]), 
-                                   np.array(T[i]), 
+            inter_func2 = interp1d(alpha[i], 
+                                   T[i], 
                                    kind='cubic', 
                                    bounds_error=False, 
                                    fill_value="extrapolate")
             TempIsoDF['HR '+str(np.round(Beta[i], decimals = 1)) + ' K/min'] = np.round(inter_func2(alps), decimals = 4)
             
-            inter_func3 = interp1d(np.array(alpha[i]), 
-                                  np.array(da_dt[i]), 
-                                  kind='cubic', 
-                                  bounds_error=False, 
-                                  fill_value="extrapolate")
+            inter_func3 = interp1d(alpha[i], 
+                                   da_dt[i], 
+                                   kind='cubic', 
+                                   bounds_error=False, 
+                                   fill_value="extrapolate")
             diffIsoDF['HR '+str(np.round(Beta[i], decimals = 1)) + ' K/min'] = np.round(inter_func3(alps), decimals = 4)
           
         colnames          = TempIsoDF.columns.tolist()
@@ -219,7 +218,7 @@ class DataExtraction(object):
         """
         return self.TempIsoDF
 #-----------------------------------------------------------------------------------------------------------
-    def adv_isoconversional(self, method='points', N = 1000, d_a = 0.00001):
+    def adv_isoconversional(self, method='points', N = 1000, d_a = 0.001):
         """
         Method that builds a DataFrame
 		based on the advanced Vyazovkin 
@@ -228,8 +227,8 @@ class DataExtraction(object):
 		the first calculated value in 
 		the first element of DFlis.  
         """
-        TempAdvIsoDF   = self.TempAdvIsoDF
-        timeAdvIsoDF   = self.timeAdvIsoDF        
+        TempAdvIsoDF   = pd.DataFrame()
+        timeAdvIsoDF   = pd.DataFrame()        
         Beta           = self.Beta
         alpha          = self.alpha
         T              = self.T
@@ -250,9 +249,9 @@ class DataExtraction(object):
             TempAdvIsoDF['HR '+str(np.round(Beta[i], decimals = 1)) + ' K/min'] = np.round(inter_func(alps), decimals = 4)
 
             inter_func2 = interp1d(alpha[i], 
-                                  t[i],
-                                  kind='cubic', bounds_error=False, 
-                                  fill_value="extrapolate")
+                                   t[i],
+                                   kind='cubic', bounds_error=False, 
+                                   fill_value="extrapolate")
             timeAdvIsoDF['HR '+str(np.round(Beta[i], decimals = 1)) + ' K/min'] = np.round(inter_func2(alps), decimals = 4)
         timeAdvIsoDF.index = alps
         TempAdvIsoDF.index = alps
@@ -311,7 +310,9 @@ class DataExtraction(object):
         T          = self.T
         t          = self.t
 
+
         DFreslis = []
+
         for k in range(len(Beta)):
             DF = pd.DataFrame([], columns=['time [min]',
                                            'Temperature [K]',
@@ -372,7 +373,7 @@ class DataExtraction(object):
 
 
         else:
-            print("Dialect not recognized")
+            raise ValueError("Dialect not recognized")
 
 #-----------------------------------------------------------------------------------------------------------
 
@@ -416,7 +417,7 @@ class ActivationEnergy(object):
 	    (OFW) treatment.
         """
         logB       = self.logB
-        E_OFW      = self.E_OFW
+        E_OFW      = []
         IsoDF      = self.IsoDF
         for i in range(0,IsoDF.shape[0]):  
             y = (logB)
@@ -437,7 +438,7 @@ class ActivationEnergy(object):
 
         logB       = self.logB
         IsoDF      = self.IsoDF
-        E_KAS      = self.E_KAS
+        E_KAS      = []
         for i in range(0,IsoDF.shape[0]):     
             y = (logB)- np.log((IsoDF.iloc[i].values)**1.92)
             x = 1/(IsoDF.iloc[i].values)
@@ -541,7 +542,7 @@ class ActivationEnergy(object):
         Method to compute the Activation 
 		Energy based on the Vyazovkin treatment.
         """
-        E_Vy       = self.E_Vy
+        E_Vy       = []
         Tempdf     = self.IsoDF
         Beta       = self.Beta 
         
@@ -551,7 +552,7 @@ class ActivationEnergy(object):
         self.E_Vy = np.array(E_Vy)
         return self.E_Vy
 #-----------------------------------------------------------------------------------------------------------        
-    def J(self, E, inf, up):
+    def J(self, E, inf, sup):
         """
         Temperature integral for the
         Advanced Vyazovkin Treatment
@@ -559,29 +560,27 @@ class ActivationEnergy(object):
         
         a=E/(self.R)
         b=inf
-        c=up
+        c=sup
 
         return a*(sp.expi(-a/c)-sp.expi(-a/b)) + c*np.exp(-a/c) - b*np.exp(-a/b)
 #-----------------------------------------------------------------------------------------------------------        
-    def adv_omega(self,E,rowi):
+    def adv_omega(self,E,row):
         """
         Function to minimize according
         to the advanced Vyazovkin treatment
         """
         AdvIsoDF = self.AdvIsoDF
         Beta     = self.Beta
-        j = rowi
-        omega_i = []
-        I_x = []
-        for i in range(len(AdvIsoDF.columns)):
-            I_x.append(self.J(E,
-                         AdvIsoDF[AdvIsoDF.columns[i]][AdvIsoDF.index[j]],
-                         AdvIsoDF[AdvIsoDF.columns[i]][AdvIsoDF.index[j+1]]))
-        I_B = np.array(I_x)/Beta
+        j = row
+    
+        I_x = np.array([self.J(E,
+                      AdvIsoDF[AdvIsoDF.columns[i]][AdvIsoDF.index[j]],
+                      AdvIsoDF[AdvIsoDF.columns[i]][AdvIsoDF.index[j+1]]) 
+                      for i in range(len(AdvIsoDF.columns))])
+        I_B = I_x/Beta
         
-        for k in range(len(Beta)):
-            y = I_B[k]*((np.sum(1/(I_B)))-(1/I_B[k]))
-            omega_i.append(y)
+        omega_i = np.array([I_B[k]*((np.sum(1/(I_B)))-(1/I_B[k])) for k in range(len(Beta))])
+ 
         O = np.array(np.sum((omega_i)))
         return O
 #-----------------------------------------------------------------------------------------------------------
