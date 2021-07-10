@@ -5,6 +5,9 @@ from   scipy.interpolate import interp1d
 from   scipy.optimize    import minimize_scalar
 import scipy.special     as     sp
 import matplotlib.pyplot as plt
+from scipy.stats import linregress
+from scipy.stats import t
+
 #-----------------------------------------------------------------------------------------------------------
 class DataExtraction(object):
     """
@@ -92,14 +95,10 @@ class DataExtraction(object):
                 DF[r'$d\alpha/dt$'][0] = np.nan
                 DF[r'$d\alpha/dt$'][1:] = dadt  
 
-            y = DF['Temperature [K]']
-            x = DF[DF.columns[0]]
-            den = np.sum((x-(np.mean(x)))**2)
-            num = np.sum((x-(np.mean(x)))*(y-(np.mean(y))))
-            r = (num**2)/(np.sum((x-np.mean(x))**2)*(np.sum((y-np.mean(y))**2)))
+            LR = linregress(DF[DF.columns[0]],DF[DF.columns[3]])
 
-            BetaCorrCoeff.append(r)
-            Beta.append(num/den )
+            BetaCorrCoeff.append(LR.rvalue)
+            Beta.append(LR.slope)
             DFlis.append(DF)           
 
         for i in range(len(DFlis)):
@@ -142,7 +141,7 @@ class DataExtraction(object):
         Pearson Coefficients
         """
         return self.BetaCC
- #-----------------------------------------------------------------------------------------------------------       
+#-----------------------------------------------------------------------------------------------------------       
     def get_DFlis(self):
         """
         Getter for the DataFrame
@@ -298,7 +297,7 @@ class DataExtraction(object):
                 self.get_t(),
                 self.get_beta()]
 #-----------------------------------------------------------------------------------------------------------
-    def save_df(self, E_OFW=None, E_KAS=None, E_Vy=None, E_aVy=None, dialect="xlsx" ):
+    def save_df(self, E_Fr= None, E_OFW=None, E_KAS=None, E_Vy=None, E_aVy=None, dialect="xlsx" ):
         """
         Method to save dataframe with
         values calculated by ActivationEnergy
@@ -374,11 +373,55 @@ class DataExtraction(object):
 
         else:
             raise ValueError("Dialect not recognized")
+#-----------------------------------------------------------------------------------------------------------
+    def get_avsT_plot(self)
+        for i in range(len(self.DFlis)):
+            plt.plot(self.T[i],
+                     self.alpha[i],
+                     label=str(np.round(self.Beta[i],decimals=1))+' K/min')
+            plt.xlabel(self.DFlis[i].columns[3])
+            plt.ylabel(self.DFlis[i].columns[4])
+            plt.axis('equal')
+            plt.legend(loc='lower right')
+        return plt.show()
+#-----------------------------------------------------------------------------------------------------------
+    def get_dadtvsT_plot(self)
+        for i in range(len(self.DFlis)):
+            plt.plot(self.T[i],
+                     self.da_dt[i],
+                     label=str(np.round(self.Beta[i],decimals=1))+' K/min')
+            plt.xlabel(self.DFlis[i].columns[3])
+            plt.ylabel(self.DFlis[i].columns[5])
+            plt.axis('equal')
+            plt.legend(loc='lower right')
+        return plt.show()
 
+#-----------------------------------------------------------------------------------------------------------
+    def get_avst_plot(self)
+        for i in range(len(self.DFlis)):
+            plt.plot(self.t[i],
+                     self.alpha[i],
+                     label=str(np.round(sel.Beta[i],decimals=1))+' K/min')
+            plt.xlabel(self.DFlis[i].columns[0])
+            plt.ylabel(self.DFlis[i].columns[4])
+            plt.axis('equal')
+            plt.legend(loc='lower right')
+        return plt.show()
+#-----------------------------------------------------------------------------------------------------------
+    def get_dadtvst_plot(self)
+        for i in range(len(self.DFlis)):
+            plt.plot(self.t[i],
+                     self.da_dt[i],
+                     label=str(np.round(self.Beta[i],decimals=1))+' K/min')
+            plt.xlabel(self.DFlis[i].columns[0])
+            plt.ylabel(self.DFlis[i].columns[5])
+            plt.axis('equal')
+            plt.legend(loc='lower right')
+        return plt.show()
 #-----------------------------------------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------------------------------------
-class ActivationEnergy(object):
+class ActivationEnergy(DataExtraction):
     """
 	Class that uses the lists and
 	Data Frames generated with 
@@ -387,7 +430,7 @@ class ActivationEnergy(object):
 	four methods: FOW, KAS, Vyazovkin
 	and Advanced Vyazovkin. 
     """
-    def __init__(self, iso_df, Beta, adv_df=None):
+    def __init__(self):
         """
 		Constructor. Receives the Isoconversional
 		Data Frame as first parameter, the list 'Beta'
@@ -398,9 +441,9 @@ class ActivationEnergy(object):
         self.E_KAS = []
         self.E_Vy  = []
         self.E_aVy = []
-        self.IsoDF = iso_df
+        self.IsoDF = self.TempIsoDF
         self.Beta  = Beta
-        self.logB = np.log(Beta)
+        self.logB  = np.log(Beta)
 
         if(adv_df is not None):
             self.AdvIsoDF = adv_df
@@ -408,7 +451,38 @@ class ActivationEnergy(object):
         Universal gas constant
         0.0083144626 kJ/(mol*K)
         """
-        self.R =0.0083144626
+        self.R    = 0.0083144626
+        self.tinv = lambda p, df: abs(t.ppf(p/2, df))
+        self.ts   = tinv(0.05, len(x)-2)
+#-----------------------------------------------------------------------------------------------------------
+    def Fr(self):
+        """
+        Method to compute the Activation 
+	    Energy based on the Osawa-Flynn-Wall 
+	    (OFW) treatment.
+        """
+        E_Fr      = []
+        E_Fr_err  = []
+        IsoDF     = self.IsoDF
+        diffIsoDF = self.diffIsoDF
+        Fr_b      = []
+
+        for i in range(0,IsoDF.shape[0]):  
+            y = diffIsoDF.iloc[i].values
+            x = 1/(IsoDF.iloc[i].values)
+            LR = linregress(x,y)
+            E_a_i = -(self.R/1.052)*(LR.slope)
+            error = -(self.R/1.052)*(LR.stderr)
+            Fr_b.append(LR.intercept)
+            E_Fr_err.append(ts*error)
+            E_Fr.append(E_a_i)
+
+        self.E_Fr   = np.array(E_Fr)
+        self.Fr_95e = np.array(E_Fr_err)
+        self.Fr_b   = np.array(Fr_b) 
+
+        return self.E_Fr, self.Fr_95e, self.Fr_b
+
 #-----------------------------------------------------------------------------------------------------------
     def OFW(self):
         """
@@ -418,16 +492,22 @@ class ActivationEnergy(object):
         """
         logB       = self.logB
         E_OFW      = []
+        E_OFW_err  = []
         IsoDF      = self.IsoDF
+
         for i in range(0,IsoDF.shape[0]):  
             y = (logB)
             x = 1/(IsoDF.iloc[i].values)
-            den = np.sum((x-(np.mean(x)))**2)
-            num = np.sum((x-(np.mean(x)))*(y-(np.mean(y))))
-            E_a_i = -(self.R/1.052)*(num/den)
+            LR = linregress(x,y)
+            E_a_i = -(self.R/1.052)*(LR.slope)
+            error = -(self.R/1.052)*(LR.stderr)
+            E_OFW_err.append(ts*error)
             E_OFW.append(E_a_i)
-        self.E_OFW = np.array(E_OFW)
-        return self.E_OFW
+
+        self.E_OFW   = np.array(E_OFW)
+        self.OFW_95e = np.array(E_OFW_err)
+
+        return self.E_OFW, self.OFW_95e
 #-----------------------------------------------------------------------------------------------------------
     def KAS(self):
         """
@@ -439,15 +519,20 @@ class ActivationEnergy(object):
         logB       = self.logB
         IsoDF      = self.IsoDF
         E_KAS      = []
+        E_KAS_err  = []
+
         for i in range(0,IsoDF.shape[0]):     
             y = (logB)- np.log((IsoDF.iloc[i].values)**1.92)
             x = 1/(IsoDF.iloc[i].values)
-            den = np.sum((x-(np.mean(x)))**2)
-            num = np.sum((x-(np.mean(x)))*(y-(np.mean(y))))
-            E_a_i = -(self.R)*(num/den )
+            LR = linregress(x,y)
+            E_a_i = -(self.R)*(LR.slope)
+            error = -(self.R)*(LR.stderr)
+            E_KAS_err.append(ts*error)
             E_KAS.append(E_a_i)
-        self.E_KAS = np.array(E_KAS)
-        return self.E_KAS
+
+        self.E_KAS   = np.array(E_KAS)
+        self.KAS_95e = np.array(E_KAS_err)
+        return self.E_KAS, self.KAS_95e
 #-----------------------------------------------------------------------------------------------------------
     def omega(self,E,row,DF,Beta,method = 'senum-yang'):
     
@@ -617,4 +702,43 @@ class ActivationEnergy(object):
         self.E_aVy = np.array(E_aVy)
         return self.E_aVy
 #-----------------------------------------------------------------------------------------------------------        
+    def prediction(self, E = None, B = 1, T0 = 298.15, Tf=1298.15):
+        """
+        Method to calculate a kinetic
+        prediction, based on an
+        isoconversional activation energy
+        """
+        b      = self.Fr_b
+        a_pred = [0]
+        T      = np.linspace(T0,Tf,len(b))
+        t      =  (T-T0)/B
+        for i in range(len(self.Fr_b)):
+            a = a[i] + b[i]*np.exp(-(E[i]/(self.R*T[i]))*t[i])
+            a_pred.append(a)
+
+        a_pred      = np.array(a_pred)
+        self.a_pred = a_pred
+       
+        return self.a_pred
+#-----------------------------------------------------------------------------------------------------------
+    def get_Eavsa_plot(self, E_Fr= None, E_OFW=None, E_KAS=None, E_Vy=None, E_aVy=None)
+        
+        plt.plot(self.diffIsoDF.index.values,
+                Fr,
+                label='Fr')
+        plt.plot(self.TempIsoDF.index.values,
+                OFW,
+                label='OFW')  
+        plt.plot(self.TempIsoDF.index.values,
+                KAS,
+                label='KAS')    
+        plt.plot(self.TempIsoDF.index.values,
+                Vy,
+                label='Vyazovkin')    
+        plt.plot(self.TempAdvIsoDF.index.values[1:],
+                aVy,
+                label='adv. Vyazovkin')   
+        ax.set_ylabel(r'$E_{\alpha}$')
+        ax.set_xlabel(r'$\alpha$')
+        ax.legend()
 
