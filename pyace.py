@@ -7,7 +7,7 @@ import scipy.special     as     sp
 import matplotlib.pyplot as plt
 from scipy.stats import linregress
 from scipy.stats import t
-
+from scipy import integrate
 #-----------------------------------------------------------------------------------------------------------
 class DataExtraction(object):
     """
@@ -374,54 +374,50 @@ class DataExtraction(object):
         else:
             raise ValueError("Dialect not recognized")
 #-----------------------------------------------------------------------------------------------------------
-    def get_avsT_plot(self)
+    def get_avsT_plot(self):
         for i in range(len(self.DFlis)):
             plt.plot(self.T[i],
                      self.alpha[i],
                      label=str(np.round(self.Beta[i],decimals=1))+' K/min')
             plt.xlabel(self.DFlis[i].columns[3])
             plt.ylabel(self.DFlis[i].columns[4])
-            plt.axis('equal')
             plt.legend(loc='lower right')
         return plt.show()
 #-----------------------------------------------------------------------------------------------------------
-    def get_dadtvsT_plot(self)
+    def get_dadtvsT_plot(self):
         for i in range(len(self.DFlis)):
             plt.plot(self.T[i],
                      self.da_dt[i],
                      label=str(np.round(self.Beta[i],decimals=1))+' K/min')
             plt.xlabel(self.DFlis[i].columns[3])
             plt.ylabel(self.DFlis[i].columns[5])
-            plt.axis('equal')
             plt.legend(loc='lower right')
         return plt.show()
 
 #-----------------------------------------------------------------------------------------------------------
-    def get_avst_plot(self)
+    def get_avst_plot(self):
         for i in range(len(self.DFlis)):
             plt.plot(self.t[i],
                      self.alpha[i],
-                     label=str(np.round(sel.Beta[i],decimals=1))+' K/min')
+                     label=str(np.round(self.Beta[i],decimals=1))+' K/min')
             plt.xlabel(self.DFlis[i].columns[0])
             plt.ylabel(self.DFlis[i].columns[4])
-            plt.axis('equal')
             plt.legend(loc='lower right')
         return plt.show()
 #-----------------------------------------------------------------------------------------------------------
-    def get_dadtvst_plot(self)
+    def get_dadtvst_plot(self):
         for i in range(len(self.DFlis)):
             plt.plot(self.t[i],
                      self.da_dt[i],
                      label=str(np.round(self.Beta[i],decimals=1))+' K/min')
             plt.xlabel(self.DFlis[i].columns[0])
             plt.ylabel(self.DFlis[i].columns[5])
-            plt.axis('equal')
             plt.legend(loc='lower right')
         return plt.show()
 #-----------------------------------------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------------------------------------
-class ActivationEnergy(DataExtraction):
+class ActivationEnergy(object):
     """
 	Class that uses the lists and
 	Data Frames generated with 
@@ -430,32 +426,28 @@ class ActivationEnergy(DataExtraction):
 	four methods: FOW, KAS, Vyazovkin
 	and Advanced Vyazovkin. 
     """
-    def __init__(self):
+    def __init__(self, Beta):
         """
 		Constructor. Receives the Isoconversional
 		Data Frame as first parameter, the list 'Beta'
 		as second parameter, and the Adv_Isoconversional
 		Data Frame as an optional third parameter.
         """
-        self.E_OFW = []
-        self.E_KAS = []
-        self.E_Vy  = []
-        self.E_aVy = []
-        self.IsoDF = self.TempIsoDF
-        self.Beta  = Beta
-        self.logB  = np.log(Beta)
-
-        if(adv_df is not None):
-            self.AdvIsoDF = adv_df
+        self.E_Fr     = []
+        self.E_OFW    = []
+        self.E_KAS    = []
+        self.E_Vy     = []
+        self.E_aVy    = []
+        self.Beta     = Beta
+        self.logB     = np.log(Beta)
         """ 
         Universal gas constant
         0.0083144626 kJ/(mol*K)
         """
         self.R    = 0.0083144626
-        self.tinv = lambda p, df: abs(t.ppf(p/2, df))
-        self.ts   = tinv(0.05, len(x)-2)
+
 #-----------------------------------------------------------------------------------------------------------
-    def Fr(self):
+    def Fr(self, TempIsoDF, diffIsoDF):
         """
         Method to compute the Activation 
 	    Energy based on the Osawa-Flynn-Wall 
@@ -463,16 +455,16 @@ class ActivationEnergy(DataExtraction):
         """
         E_Fr      = []
         E_Fr_err  = []
-        IsoDF     = self.IsoDF
-        diffIsoDF = self.diffIsoDF
         Fr_b      = []
 
-        for i in range(0,IsoDF.shape[0]):  
-            y = diffIsoDF.iloc[i].values
-            x = 1/(IsoDF.iloc[i].values)
+        for i in range(0,diffIsoDF.shape[0]):  
+            y = np.log(diffIsoDF.iloc[i].values)
+            x = 1/(TempIsoDF.iloc[i].values)
+            tinv = lambda p, df: abs(t.ppf(p/2, df))
+            ts   = tinv(0.05, len(x)-2)
             LR = linregress(x,y)
-            E_a_i = -(self.R/1.052)*(LR.slope)
-            error = -(self.R/1.052)*(LR.stderr)
+            E_a_i = -(self.R)*(LR.slope)
+            error = -(self.R)*(LR.stderr)
             Fr_b.append(LR.intercept)
             E_Fr_err.append(ts*error)
             E_Fr.append(E_a_i)
@@ -484,7 +476,7 @@ class ActivationEnergy(DataExtraction):
         return self.E_Fr, self.Fr_95e, self.Fr_b
 
 #-----------------------------------------------------------------------------------------------------------
-    def OFW(self):
+    def OFW(self, TempIsoDF):
         """
         Method to compute the Activation 
 	    Energy based on the Osawa-Flynn-Wall 
@@ -493,11 +485,12 @@ class ActivationEnergy(DataExtraction):
         logB       = self.logB
         E_OFW      = []
         E_OFW_err  = []
-        IsoDF      = self.IsoDF
 
-        for i in range(0,IsoDF.shape[0]):  
+        for i in range(TempIsoDF.shape[0]):  
             y = (logB)
-            x = 1/(IsoDF.iloc[i].values)
+            x = 1/(TempIsoDF.iloc[i].values)
+            tinv = lambda p, df: abs(t.ppf(p/2, df))
+            ts   = tinv(0.05, len(x)-2)
             LR = linregress(x,y)
             E_a_i = -(self.R/1.052)*(LR.slope)
             error = -(self.R/1.052)*(LR.stderr)
@@ -509,7 +502,7 @@ class ActivationEnergy(DataExtraction):
 
         return self.E_OFW, self.OFW_95e
 #-----------------------------------------------------------------------------------------------------------
-    def KAS(self):
+    def KAS(self,TempIsoDF):
         """
         Method to compute the Activation 
 		Energy based on the 
@@ -517,13 +510,14 @@ class ActivationEnergy(DataExtraction):
         """
 
         logB       = self.logB
-        IsoDF      = self.IsoDF
         E_KAS      = []
         E_KAS_err  = []
 
-        for i in range(0,IsoDF.shape[0]):     
-            y = (logB)- np.log((IsoDF.iloc[i].values)**1.92)
-            x = 1/(IsoDF.iloc[i].values)
+        for i in range(TempIsoDF.shape[0]):     
+            y = (logB)- np.log((TempIsoDF.iloc[i].values)**1.92)
+            x = 1/(TempIsoDF.iloc[i].values)
+            tinv = lambda p, df: abs(t.ppf(p/2, df))
+            ts   = tinv(0.05, len(x)-2)
             LR = linregress(x,y)
             E_a_i = -(self.R)*(LR.slope)
             error = -(self.R)*(LR.stderr)
@@ -534,10 +528,10 @@ class ActivationEnergy(DataExtraction):
         self.KAS_95e = np.array(E_KAS_err)
         return self.E_KAS, self.KAS_95e
 #-----------------------------------------------------------------------------------------------------------
-    def omega(self,E,row,DF,Beta,method = 'senum-yang'):
+    def omega(self,E,row,IsoDF,Beta,method = 'senum-yang'):
     
-        T0      = DF.iloc[0].values   
-        T       = DF.iloc[row].values
+        T0      = IsoDF.iloc[0].values   
+        T       = IsoDF.iloc[row].values
 
         def senum_yang(E):
             x = E/(self.R*T)
@@ -553,8 +547,8 @@ class ActivationEnergy(DataExtraction):
             yf     = np.exp(-E/(self.R*xf))
             tpz    = []
             for i in range(len(T)):
-                tpz.append(integrate.trapezoid([y0[i],yf[i]],
-                                               [x0[i],xf[i]]))
+                 tpz.append(integrate.trapezoid([y0[i],yf[i]],
+                                                [x0[i],xf[i]]))
             return np.array(tpz)
     
         def quad(E):
@@ -595,7 +589,8 @@ class ActivationEnergy(DataExtraction):
                 y = p_B[j]*((np.sum(1/(p_B)))-(1/p_B[j]))
                 omega_i.append(y)
             return np.array(np.sum((omega_i)))
-
+        else:
+            raise ValueError('method not recognized')
 #-----------------------------------------------------------------------------------------------------------
     def set_bounds(self, bounds):
         """
@@ -605,7 +600,7 @@ class ActivationEnergy(DataExtraction):
         print("The bounds for evaluating E are "+str(bounds))
         return bounds
 #-----------------------------------------------------------------------------------------------------------
-    def visualize_omega(self,row,bounds=(1,300),N=1000,method = 'senum-yang'):
+    def visualize_omega(self,IsoDF,row,bounds=(1,300),N=1000,method = 'senum-yang'):
         """
         Method to visualize omega function.
         Bounds requiered from function vy o 
@@ -613,26 +608,25 @@ class ActivationEnergy(DataExtraction):
         """
         
         E = np.linspace(bounds[0], bounds[1], N)
-        O = np.array([float(self.omega(E[i],row,self.IsoDF,self.Beta,method = method)) for i in range(len(E))])
+        O = np.array([float(self.omega(E[i],row,IsoDF,self.Beta,method = method)) for i in range(len(E))])
         plt.style.use('seaborn')
-        plt.plot(E,O,color='teal',label=r'$\alpha$ = '+str(np.round(self.IsoDF.index[row],decimals=3)))        
+        plt.plot(E,O,color='teal',label=r'$\alpha$ = '+str(np.round(IsoDF.index[row],decimals=3)))        
         plt.ylabel(r'$\Omega\left(E_{\alpha}\right)$')
         plt.xlabel(r'$E_{\alpha}$')
         plt.legend()
 
         return plt.show()
 #-----------------------------------------------------------------------------------------------------------
-    def Vy(self, bounds,method='senum-yang'):
+    def Vy(self, IsoDF, bounds,method='senum-yang'):
         """
         Method to compute the Activation 
 		Energy based on the Vyazovkin treatment.
         """
         E_Vy       = []
-        Tempdf     = self.IsoDF
         Beta       = self.Beta 
         
-        for k in range(len(Tempdf.index)):
-            E_Vy.append(minimize_scalar(self.omega, args=(k,Tempdf,Beta,method),bounds=bounds, method = 'bounded').x)
+        for k in range(len(IsoDF.index)):
+            E_Vy.append(minimize_scalar(self.omega, args=(k,IsoDF,Beta,method),bounds=bounds, method = 'bounded').x)
 
         self.E_Vy = np.array(E_Vy)
         return self.E_Vy
@@ -649,12 +643,12 @@ class ActivationEnergy(DataExtraction):
 
         return a*(sp.expi(-a/c)-sp.expi(-a/b)) + c*np.exp(-a/c) - b*np.exp(-a/b)
 #-----------------------------------------------------------------------------------------------------------        
-    def adv_omega(self,E,row):
+    def adv_omega(self,E,AdvIsoDF,row):
         """
         Function to minimize according
         to the advanced Vyazovkin treatment
         """
-        AdvIsoDF = self.AdvIsoDF
+        AdvIsoDF = AdvIsoDF
         Beta     = self.Beta
         j = row
     
@@ -669,36 +663,34 @@ class ActivationEnergy(DataExtraction):
         O = np.array(np.sum((omega_i)))
         return O
 #-----------------------------------------------------------------------------------------------------------
-    def visualize_advomega(self,row,bounds=(1,300),N=1000):
+    def visualize_advomega(self,AdvIsoDF,row,bounds=(1,300),N=1000):
         """
         Method to visualize adv_omega function.
         Bounds requiered from function Vy o 
         by bounds setter
         """
-        
+
         E = np.linspace(bounds[0], bounds[1], N)
-        O = np.array([float(self.adv_omega(E[i],row)) for i in range(len(E))])
+        O = np.array([float(self.adv_omega(E[i],AdvIsoDF,row)) for i in range(len(E))])
         plt.style.use('seaborn')
-        plt.plot(E,O,color='teal',label=r'$\alpha$ = '+str(np.round(self.IsoDF.index[row],decimals=3)))
+        plt.plot(E,O,color='teal',label=r'$\alpha$ = '+str(np.round(AdvIsoDF.index[row],decimals=3)))
         plt.ylabel(r'$\Omega\left(E_{\alpha}\right)$')
         plt.xlabel(r'$E_{\alpha}$')
         plt.legend()
     
         return plt.show()
 #-----------------------------------------------------------------------------------------------------------
-    def aVy(self,bounds):
+    def aVy(self,AdvIsoDF,bounds):
         """
         Method to compute the Activation 
 		Energy based on the Advanced
 		Vyazovkin treatment.
         """
-
-        AdvIsoDF = self.AdvIsoDF 
         Beta     = self.Beta
-
         E_aVy = []
+
         for k in range(len(AdvIsoDF.index)-1):
-            E_aVy.append(minimize_scalar(self.adv_omega,bounds=bounds,args=(k), method = 'bounded').x)
+            E_aVy.append(minimize_scalar(self.adv_omega,bounds=bounds,args=(AdvIsoDF,k), method = 'bounded').x)
         self.E_aVy = np.array(E_aVy)
         return self.E_aVy
 #-----------------------------------------------------------------------------------------------------------        
@@ -721,7 +713,7 @@ class ActivationEnergy(DataExtraction):
        
         return self.a_pred
 #-----------------------------------------------------------------------------------------------------------
-    def get_Eavsa_plot(self, E_Fr= None, E_OFW=None, E_KAS=None, E_Vy=None, E_aVy=None)
+    def get_Eavsa_plot(self, E_Fr= None, E_OFW=None, E_KAS=None, E_Vy=None, E_aVy=None):
         
         plt.plot(self.diffIsoDF.index.values,
                 Fr,
@@ -738,7 +730,7 @@ class ActivationEnergy(DataExtraction):
         plt.plot(self.TempAdvIsoDF.index.values[1:],
                 aVy,
                 label='adv. Vyazovkin')   
-        ax.set_ylabel(r'$E_{\alpha}$')
-        ax.set_xlabel(r'$\alpha$')
-        ax.legend()
+        plt.ylabel(r'$E_{\alpha}$')
+        plt.xlabel(r'$\alpha$')
+        plt.legend()
 
