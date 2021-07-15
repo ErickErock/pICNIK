@@ -42,6 +42,9 @@ class DataExtraction(object):
         Method to establish the file list
         for the extrator. The list must be 
         in ascendent heating rate order.
+
+        Parameters:   filelist : list object containing the paths
+                      of the files to be used.
         """
         self.files = filelist
         print("Files to be used: \n{} ".format(filelist))
@@ -55,6 +58,9 @@ class DataExtraction(object):
         and a third for d(alpha)/dt.
         Also computes The heating rate ('Beta') with 
         its Correlation Coefficient.
+
+        Parameters:   encoding: the available encodings for pandas. Include
+                      but not limited to 'utf8', 'utf16','latin1'
         """
         BetaCorrCoeff = self.BetaCC
         DFlis         = self.DFlis
@@ -224,8 +230,19 @@ class DataExtraction(object):
 		method. The index correspond to 
 		an equidistant set of data from 
 		the first calculated value in 
-		the first element of DFlis.  
+		the first element of DFlis.
+
+        Parameters:     method : String. Must be either 
+                                 'points' or 'interval'.
+
+                        N      : Int. Number of points of the  
+                                 for the 'points' method.
+
+                        d_a    : Float. Size of the interval between
+                                 conversion values if the method 
+                                 'interval' is chosen.    
         """
+
         TempAdvIsoDF   = pd.DataFrame()
         timeAdvIsoDF   = pd.DataFrame()        
         Beta           = self.Beta
@@ -297,11 +314,20 @@ class DataExtraction(object):
                 self.get_t(),
                 self.get_beta()]
 #-----------------------------------------------------------------------------------------------------------
-    def save_df(self, E_Fr= None, E_OFW=None, E_KAS=None, E_Vy=None, E_aVy=None, dialect="xlsx" ):
+    def save_df(self, E_Fr= None, E_OFW=None, E_KAS=None, E_Vy=None, E_aVy=None, file_t="xlsx" ):
         """
         Method to save dataframe with
         values calculated by ActivationEnergy
-        """
+         
+        Parameters:    file_t   :  String. Type of file, can be 'csv' of 'xlsx'.
+                                  'xlsx' is the default value.
+
+        returns:      If 'xlsx' is selected, a spreadsheet containg one sheet per experiment
+                      containing the values of T, t, and da_dt, plus a sheet containing the 
+                      activation energies. 
+                      If 'csv' is selected, one 'csv' file per experiment, containing the
+                      values of T, t, and da_dt, plus a sheet containing the activation energies. 
+       """
         TempIsoDF  = self.TempIsoDF
         dflist     = self.DFlis
         Beta       = self.Beta
@@ -372,7 +398,7 @@ class DataExtraction(object):
 
 
         else:
-            raise ValueError("Dialect not recognized")
+            raise ValueError("File type not recognized")
 #-----------------------------------------------------------------------------------------------------------
     def get_avsT_plot(self):
         for i in range(len(self.DFlis)):
@@ -426,20 +452,41 @@ class ActivationEnergy(object):
 	four methods: FOW, KAS, Vyazovkin
 	and Advanced Vyazovkin. 
     """
-    def __init__(self, Beta):
+    def __init__(self, Beta, TempIsoDF=None, diffIsoDF=None, TempAdvIsoDF = None, timeAdvIsoDF = None):
         """
 		Constructor. Receives the Isoconversional
 		Data Frame as first parameter, the list 'Beta'
 		as second parameter, and the Adv_Isoconversional
 		Data Frame as an optional third parameter.
+
+        Parameters:         Beta         : list object containing the values of heating 
+                                           rate for each experiment.
+
+                            TempIsoDF    : pandas DataFrame containing the isoconversional
+                                           temperatures.  
+                      
+                            diffIsoDF    : pandas DataFrame containing the isoconversional
+                                           derivatives of conversion in respest to time (da_dt).
+
+                            TempAdvIsoDF : pandas DataFrame containing the isoconversional
+                                           temperatures, corresponding to evenly spaced values 
+                                           of conversion. 
+                            
+                            timeAdvIsoDF : pandas DataFrame containing the isoconversional
+                                           times, corresponding to evenly spaced values of  
+                                           conversion.     
         """
-        self.E_Fr     = []
-        self.E_OFW    = []
-        self.E_KAS    = []
-        self.E_Vy     = []
-        self.E_aVy    = []
-        self.Beta     = Beta
-        self.logB     = np.log(Beta)
+        self.E_Fr         = []
+        self.E_OFW        = []
+        self.E_KAS        = []
+        self.E_Vy         = []
+        self.E_aVy        = []
+        self.Beta         = Beta
+        self.logB         = np.log(Beta)
+        self.TempIsoDF    = TempIsoDF
+        self.diffIsoDF    = diffIsoDF
+        self.TempAdvIsoDF = TempAdvIsoDF
+        self.timeAdvIsoDF = timeAdvIsoDF
         """ 
         Universal gas constant
         0.0083144626 kJ/(mol*K)
@@ -447,17 +494,33 @@ class ActivationEnergy(object):
         self.R    = 0.0083144626
 
 #-----------------------------------------------------------------------------------------------------------
-    def Fr(self, TempIsoDF, diffIsoDF):
+    def Fr(self):
         """
         Method to compute the Activation 
 	    Energy based on the Osawa-Flynn-Wall 
 	    (OFW) treatment.
+
+        returns : E_Fr    : numpy array containing the
+                            activation energy values 
+                            obtained by the Friedman method
+             
+                  Fr_95e  : numpy array containing the
+                            95% trust interval values 
+                            obtained by the linear regression
+                            in the Friedman method
+                         
+                  Fr_b    : numpy array containing the
+                            intersection values 
+                            obtained by the linear regression
+                            in the Friedman method
         """
         E_Fr      = []
         E_Fr_err  = []
         Fr_b      = []
-
-        for i in range(0,diffIsoDF.shape[0]):  
+        diffIsoDF = self.diffIsoDF
+        TempIsoDF = self.TempIsoDF
+ 
+        for i in range(0,diffIsoDF.shape[0]):   
             y = np.log(diffIsoDF.iloc[i].values)
             x = 1/(TempIsoDF.iloc[i].values)
             tinv = lambda p, df: abs(t.ppf(p/2, df))
@@ -473,18 +536,30 @@ class ActivationEnergy(object):
         self.Fr_95e = np.array(E_Fr_err)
         self.Fr_b   = np.array(Fr_b) 
 
-        return self.E_Fr, self.Fr_95e, self.Fr_b
+        return (self.E_Fr, self.Fr_95e, self.Fr_b)
 
 #-----------------------------------------------------------------------------------------------------------
-    def OFW(self, TempIsoDF):
+    def OFW(self):
         """
         Method to compute the Activation 
 	    Energy based on the Osawa-Flynn-Wall 
 	    (OFW) treatment.
+
+        returns : E_OFW   : numpy array containing the
+                            activation energy values 
+                            obtained by the Ozawa_Flynn-Wall 
+                            method
+             
+                  OFW_95e : numpy array containing the
+                            95% trust interval values 
+                            obtained by the linear regression
+                            in the Ozawa-Flynn-Wall method
         """
         logB       = self.logB
         E_OFW      = []
         E_OFW_err  = []
+        TempIsoDF  = self.TempIsoDF
+        
 
         for i in range(TempIsoDF.shape[0]):  
             y = (logB)
@@ -502,16 +577,28 @@ class ActivationEnergy(object):
 
         return self.E_OFW, self.OFW_95e
 #-----------------------------------------------------------------------------------------------------------
-    def KAS(self,TempIsoDF):
+    def KAS(self):
         """
         Method to compute the Activation 
 		Energy based on the 
 		Kissinger-Akahira-Sunose (KAS) treatment.
+
+        returns : E_KAS   : numpy array containing the
+                            activation energy values 
+                            obtained by the Kissinger-Akahra-Sunose 
+                            method
+             
+                  KAS_95e : numpy array containing the
+                            95% trust interval values 
+                            obtained by the linear regression
+                            in the Kissinger-Akahra-Sunose method
         """
 
         logB       = self.logB
         E_KAS      = []
         E_KAS_err  = []
+        TempIsoDF  = self.TempIsoDF
+       
 
         for i in range(TempIsoDF.shape[0]):     
             y = (logB)- np.log((TempIsoDF.iloc[i].values)**1.92)
@@ -528,8 +615,33 @@ class ActivationEnergy(object):
         self.KAS_95e = np.array(E_KAS_err)
         return self.E_KAS, self.KAS_95e
 #-----------------------------------------------------------------------------------------------------------
-    def omega(self,E,row,IsoDF,Beta,method = 'senum-yang'):
-    
+    def omega(self,E,row,Beta,method = 'senum-yang'):
+        """
+        Method to calculate the function to minimize
+        for the Vyazovkin method.
+
+        Parameters:     E      : The activation energy value used to
+                                 calculate the value of omega.
+
+                        row    : index value for the row of conversion in the
+                                 pandas DataFrame containing the isoconversional
+                                 temperatures.         
+
+                        Beta   : list object containing the heatibg rate
+                                  values for each experiment.
+
+                        method : Method to compute the integral temperature.
+                                 The available methods are: 'senum-yang' for
+                                 the Senum-Yang approximation, 'trapeoid' for
+                                 the the trapezoid rule of numerical integration,
+                                 and 'quad' for using a technique from the Fortran 
+                                 library QUADPACK implemented in the scipy.integrate   
+                                 subpackage.
+
+        Returns:        O      : Float. Value of the omega function for the given E.  
+        """ 
+
+        IsoDF   = self.TempIsoDF    
         T0      = IsoDF.iloc[0].values   
         T       = IsoDF.iloc[row].values
 
@@ -572,7 +684,7 @@ class ActivationEnergy(object):
             for j in range(len(Beta)):
                 y = p_B[j]*((np.sum(1/(p_B)))-(1/p_B[j]))
                 omega_i.append(y)
-            return np.array(np.sum((omega_i)))
+            return np.sum((omega_i))
 
         elif method == 'trapezoid':
             p = trapezoid(E)
@@ -580,7 +692,7 @@ class ActivationEnergy(object):
             for j in range(len(Beta)):
                 y = p_B[j]*((np.sum(1/(p_B)))-(1/p_B[j]))
                 omega_i.append(y)
-            return np.array(np.sum((omega_i)))
+            return np.sum((omega_i))
 
         elif method == 'quad':
             p = quad(E)
@@ -588,27 +700,55 @@ class ActivationEnergy(object):
             for j in range(len(Beta)):
                 y = p_B[j]*((np.sum(1/(p_B)))-(1/p_B[j]))
                 omega_i.append(y)
-            return np.array(np.sum((omega_i)))
+            return np.sum((omega_i))
         else:
             raise ValueError('method not recognized')
 #-----------------------------------------------------------------------------------------------------------
     def set_bounds(self, bounds):
         """
         Setter for bounds variable
+
+        Parameters:  bounds: Tuple objecto containing the lower 
+                             limit and the upper interval for
+                             evaluating omega.
+
+        Returns:     bounds
         """
         self.bounds = bounds
         print("The bounds for evaluating E are "+str(bounds))
         return bounds
 #-----------------------------------------------------------------------------------------------------------
-    def visualize_omega(self,IsoDF,row,bounds=(1,300),N=1000,method = 'senum-yang'):
+    def visualize_omega(self,row,bounds=(1,300),N=1000,method = 'senum-yang'):
         """
         Method to visualize omega function.
         Bounds requiered from function vy o 
         by bounds setter
+
+        Parameters:   row    : Index value for the row of conversion in the
+                               pandas DataFrame containing the isoconversional
+                               temperatures.
+      
+                      bounds : Tuple objecto containing the lower 
+                               limit and the upper interval for
+                               evaluating omega.
+ 
+                      N      : Int. Number of points in the E array  
+                               for the plot.
+
+                      method : Method to compute the integral temperature.
+                               The available methods are: 'senum-yang' for
+                               the Senum-Yang approximation, 'trapeoid' for
+                               the the trapezoid rule of numerical integration,
+                               and 'quad' for using a technique from the Fortran 
+                               library QUADPACK implemented in the scipy.integrate   
+                               subpackage.
+
+        Returns:      A matplotlib plot of omega vs E 
         """
-        
+        IsoDF   = self.TempIsoDF
+        method = method
         E = np.linspace(bounds[0], bounds[1], N)
-        O = np.array([float(self.omega(E[i],row,IsoDF,self.Beta,method = method)) for i in range(len(E))])
+        O = np.array([float(self.omega(E[i],row,self.Beta,method)) for i in range(len(E))])
         plt.style.use('seaborn')
         plt.plot(E,O,color='teal',label=r'$\alpha$ = '+str(np.round(IsoDF.index[row],decimals=3)))        
         plt.ylabel(r'$\Omega\left(E_{\alpha}\right)$')
@@ -617,101 +757,267 @@ class ActivationEnergy(object):
 
         return plt.show()
 #-----------------------------------------------------------------------------------------------------------
-    def Vy(self, IsoDF, bounds,method='senum-yang'):
+    def Vy(self, bounds,method='senum-yang'):
         """
         Method to compute the Activation 
 		Energy based on the Vyazovkin treatment.
+
+        Parameters:   bounds : Tuple objecto containing the lower 
+                               limit and the upper interval for
+                               evaluating omega.
+
+                      method : Method to compute the integral temperature.
+                               The available methods are: 'senum-yang' for
+                               the Senum-Yang approximation, 'trapeoid' for
+                               the the trapezoid rule of numerical integration,
+                               and 'quad' for using a technique from the Fortran 
+                               library QUADPACK implemented in the scipy.integrate   
+                               subpackage.
+
+        Returns:      E_Vy   : numpy array containing the activation energy values
+                               obtained by the Vyazovkin method. 
         """
         E_Vy       = []
         Beta       = self.Beta 
+        IsoDF   = self.TempIsoDF
         
         for k in range(len(IsoDF.index)):
-            E_Vy.append(minimize_scalar(self.omega, args=(k,IsoDF,Beta,method),bounds=bounds, method = 'bounded').x)
+            E_Vy.append(minimize_scalar(self.omega, args=(k,Beta,method),bounds=bounds, method = 'bounded').x)
 
         self.E_Vy = np.array(E_Vy)
         return self.E_Vy
 #-----------------------------------------------------------------------------------------------------------        
-    def J(self, E, inf, sup):
+    def J_Temp(self, E, inf, sup):
         """
-        Temperature integral for the
-        Advanced Vyazovkin Treatment
-        """
-        
-        a=E/(self.R)
-        b=inf
-        c=sup
+        Temperature integral for the Advanced Vyazovkin Treatment.
 
-        return a*(sp.expi(-a/c)-sp.expi(-a/b)) + c*np.exp(-a/c) - b*np.exp(-a/b)
+        Prameters:   E   : Float object. Value for the activation energy
+                           to evaluate the integral
+
+                     inf : Inferior integral evaluation limit.
+
+                     sup : Superior integral evaluation limit.
+
+        Returns:     J   : Float. Value of the integral obtained by an analytica
+                           expression based on a linear heating rate. 
+        """        
+        a = E/(self.R)
+        b = inf
+        c = sup
+        J = a*(sp.expi(-a/c)-sp.expi(-a/b)) + c*np.exp(-a/c) - b*np.exp(-a/b)
+
+        return J
 #-----------------------------------------------------------------------------------------------------------        
-    def adv_omega(self,E,AdvIsoDF,row):
+    def J_time(self, E, B, row_i,col_i,T0,method = 'trapezoid'):
         """
-        Function to minimize according
-        to the advanced Vyazovkin treatment
-        """
-        AdvIsoDF = AdvIsoDF
-        Beta     = self.Beta
-        j = row
-    
-        I_x = np.array([self.J(E,
-                      AdvIsoDF[AdvIsoDF.columns[i]][AdvIsoDF.index[j]],
-                      AdvIsoDF[AdvIsoDF.columns[i]][AdvIsoDF.index[j+1]]) 
-                      for i in range(len(AdvIsoDF.columns))])
-        I_B = I_x/Beta
-        
-        omega_i = np.array([I_B[k]*((np.sum(1/(I_B)))-(1/I_B[k])) for k in range(len(Beta))])
+        Time integral for the Advanced Vyazovkin Treatment. Considering a linear
+        heating rate.
+
+        Prameters:   E       : Float object. Value for the activation energy
+                               to evaluate the integral
+
+                     B       : Float object. Value of the heating rate.
+
+                     row_i   : Index value for the row of conversion in the
+                               pandas DataFrame containing the isoconversional
+                               times for evenly spaced conversion values.
  
+                     col_i   : Index value for the column of conversion in the
+                               pandas DataFrame containing the isoconversional
+                               times for evenly spaced conversion values.
+
+                     T0      : Float. Initial temperature. Must be that corresponding
+                               to the experimental heating rate B.
+
+                     method  : Numerical integration method. Can be 'trapezoid', 'simpson'
+                               or 'quad'. The method correspond to those implemented in 
+                               scipy.integrate.
+
+        Returns:     J_t     : Float. Value of the integral obtained by a numerical
+                             integration method. 
+        """    
+        timeAdvIsoDF   = self.timeAdvIsoDF
+       
+        t0 = timeAdvIsoDF[timeAdvIsoDF.columns[col_i]][timeAdvIsoDF.index.values[row_i]]
+        t  = timeAdvIsoDF[timeAdvIsoDF.columns[col_i]][timeAdvIsoDF.index.values[row_i+1]]
+        y0 = np.exp(-E/(0.008314*(T0+B*t)))
+        y  = np.exp(-E/(0.008314*(T0+B*t)))
+            
+        if method == 'trapezoid':
+            J_t = integrate.trapezoid(y=[y0,y],x=[t0,t])
+            return J_t
+            
+        elif method == 'simpson':
+            J_t = integrate.simpson(y=[y0,y],x=[t0,t])
+            return J_t
+            
+        elif method == 'quad':
+            def time_int(t,T0,B,E):
+                return np.exp(-E/(0.008314*(T0+B*t)))
+            
+            J_t = integrate.quad(time_int,t0,t,args=(T0,B,E))[0]
+            return J_t
+        else:
+            raise ValueError('method not recognized')
+#-----------------------------------------------------------------------------------------------------------        
+    def adv_omega(self,E, row, T,var = 'time', method='trapezoid'):
+        """
+        Function to minimize according to the advanced Vyazovkin treatment.
+
+        Parameters:   E       : Float object. Value for the activation energy
+                                to evaluate the integral
+
+                      row     : Index value for the row of conversion in the
+                                pandas DataFrame containing the isoconversional
+                                times for evenly spaced conversion values.
+
+                      T       : List object containing the experimental temperatures. 
+                                Must be those corresponding to the experimental heating 
+                                rate.
+
+                      var     : The variable to perform the integral with, it can be either
+                                'time' or 'Temperature'
+
+                      method  : Numerical integration method. Can be 'trapezoid', 'simpson'
+                                or 'quad'. The method correspond to those implemented in 
+                                scipy.integrate.
+
+        Returns:      O       : Float. Value of the omega function for the given E.
+        """
+        TempAdvIsoDF = self.TempAdvIsoDF
+        timeAdvIsoDF = self.timeAdvIsoDF
+        Beta         = self.Beta
+        j            = row
+
+        if var == 'Temperature':
+            I_x = np.array([self.J_Temp(E,
+                                        TempAdvIsoDF[TempAdvIsoDF.columns[i]][TempAdvIsoDF.index[j]],
+                                        TempAdvIsoDF[TempAdvIsoDF.columns[i]][TempAdvIsoDF.index[j+1]]) 
+                            for i in range(len(TempAdvIsoDF.columns))])
+            I_x = I_x/Beta
+        elif var == 'time':
+            I_x = np.array([self.J_time(E,
+                                        Beta[i],
+                                        row,
+                                        i,
+                                        T[i][0],
+                                        method) 
+                            for i in range(len(timeAdvIsoDF.columns))])
+            
+
+        I_B = I_x
+        omega_i = np.array([I_B[k]*((np.sum(1/(I_B)))-(1/I_B[k])) for k in range(len(Beta))])
         O = np.array(np.sum((omega_i)))
-        return O
+        return O        
 #-----------------------------------------------------------------------------------------------------------
-    def visualize_advomega(self,AdvIsoDF,row,bounds=(1,300),N=1000):
+    def visualize_advomega(self,row,T,var='time',bounds=(1,300),N=1000, method='trapezoid'):
         """
-        Method to visualize adv_omega function.
-        Bounds requiered from function Vy o 
+        Method to visualize adv_omega function. Bounds requiered from function Vy or 
         by bounds setter
+
+        Parameters:   row     : Index value for the row of conversion in the
+                                pandas DataFrame containing the isoconversional
+                                temperatures.
+
+                      T       : List object containing the experimental temperatures. 
+                                Must be those corresponding to the experimental heating 
+                                rate.
+
+                      var     : The variable to perform the integral with, it can be either
+                                'time' or 'Temperature'
+      
+                      bounds  : Tuple objecto containing the lower limit and the upper interval 
+                                for evaluating omega.
+
+                      N       : Int. Number of points in the E array  
+                                for the plot.
+
+                      method  : Numerical integration method. Can be 'trapezoid', 'simpson'
+                                or 'quad'. The method correspond to those implemented in 
+                                scipy.integrate. 
+
+
+        Returns:      A matplotlib plot of omega vs E 
         """
+        TempAdvIsoDF = self.TempAdvIsoDF
+        timeAdvIsoDF = self.timeAdvIsoDF
+        Beta         = self.Beta
 
         E = np.linspace(bounds[0], bounds[1], N)
-        O = np.array([float(self.adv_omega(E[i],AdvIsoDF,row)) for i in range(len(E))])
+        O = np.array([float(self.adv_omega(E[i],row, T,var,method)) for i in range(len(E))])
         plt.style.use('seaborn')
-        plt.plot(E,O,color='teal',label=r'$\alpha$ = '+str(np.round(AdvIsoDF.index[row],decimals=3)))
+        plt.plot(E,O,color='teal',label=r'$\alpha$ = '+str(np.round(timeAdvIsoDF.index[row],decimals=3)))
         plt.ylabel(r'$\Omega\left(E_{\alpha}\right)$')
         plt.xlabel(r'$E_{\alpha}$')
         plt.legend()
     
         return plt.show()
 #-----------------------------------------------------------------------------------------------------------
-    def aVy(self,AdvIsoDF,bounds):
+    def aVy(self,bounds, T, var='time', method='trapezoid'):
         """
-        Method to compute the Activation 
-		Energy based on the Advanced
-		Vyazovkin treatment.
-        """
-        Beta     = self.Beta
-        E_aVy = []
+        Method to compute the Activation Energy based on the Advanced Vyazovkin treatment.
+        
+        Parameters:   bounds : Tuple objecto containing the lower 
+                               limit and the upper interval for
+                               evaluating omega.
 
-        for k in range(len(AdvIsoDF.index)-1):
-            E_aVy.append(minimize_scalar(self.adv_omega,bounds=bounds,args=(AdvIsoDF,k), method = 'bounded').x)
+                      T      : List object containing the experimental temperatures. 
+                               Must be those corresponding to the experimental heating 
+                               rate.
+
+                      var    : The variable to perform the integral with, it can be either
+                               'time' or 'Temperature'
+
+                      method : Method to compute the integral temperature.
+                               The available methods are: 'senum-yang' for
+                               the Senum-Yang approximation, 'trapeoid' for
+                               the the trapezoid rule of numerical integration,
+                               and 'quad' for using a technique from the Fortran 
+                               library QUADPACK implemented in the scipy.integrate   
+                               subpackage.
+
+        Returns:      E_Vy   : numpy array containing the activation energy values
+                               obtained by the Vyazovkin method. 
+        """
+        TempAdvIsoDF = self.TempAdvIsoDF
+        timeAdvIsoDF = self.timeAdvIsoDF
+        Beta         = self.Beta
+        E_aVy  = []
+
+        for k in range(len(timeAdvIsoDF.index)-1):
+            E_aVy.append(minimize_scalar(self.adv_omega,bounds=bounds,args=(k,T,var,method), method = 'bounded').x)
         self.E_aVy = np.array(E_aVy)
         return self.E_aVy
 #-----------------------------------------------------------------------------------------------------------        
     def prediction(self, E = None, B = 1, T0 = 298.15, Tf=1298.15):
         """
-        Method to calculate a kinetic
-        prediction, based on an
-        isoconversional activation energy
+        Method to calculate a kinetic prediction, based on an isoconversional 
+        activation energy
+
+        Parameters:   E  : numpy array of the activation energy values to use for
+                           the prediction.
+
+                      B  : Float. Value of the heating rate for the prediction.
+
+                      T0 : Float. Initial temperature, in Kelvin, for the prediction.
+
+                      Tf : Float. Final temperature, in Kelvin, for the prediction.
+
+        Returns:      a  : numpy array containing the predicted conversion values.
         """
-        b      = self.Fr_b
+        b      = np.exp(self.Fr_b)
         a_pred = [0]
         T      = np.linspace(T0,Tf,len(b))
         t      =  (T-T0)/B
-        for i in range(len(self.Fr_b)):
-            a = a[i] + b[i]*np.exp(-(E[i]/(self.R*T[i]))*t[i])
+        dt     =  t[1]-t[0]
+        for i in range(len(b)-1):
+            a = a_pred[i] + b[i]*np.exp(-(E[i]/(self.R*T[i])))*dt
             a_pred.append(a)
 
         a_pred      = np.array(a_pred)
         self.a_pred = a_pred
        
-        return self.a_pred
+        return self.a_pred, T, t
 #-----------------------------------------------------------------------------------------------------------
     def get_Eavsa_plot(self, E_Fr= None, E_OFW=None, E_KAS=None, E_Vy=None, E_aVy=None):
         
