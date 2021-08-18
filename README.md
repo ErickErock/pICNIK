@@ -1,4 +1,4 @@
-# PyRolysis
+# pICNIK
 
 A python package to caculate activation energy of thermally stimulated processes by means of integral isoconversional methods.
 
