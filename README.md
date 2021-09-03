@@ -1,25 +1,17 @@
 # pICNIK 
 
 pICNIK is a package for isoconversional computations for non-isothermal kinetcis.\
-The package has an object oriented interface with two classes: DataExtraction and ActivationEnergy, with the purpose of managing the experimental data and computing activation energies (![formula](https://render.githubusercontent.com/render/math?math=E_{\alpha})) with the next isoconversional methods: 
+The package has an object oriented interface with two classes: DataExtraction and ActivationEnergy, with the purpose of managing the experimental data and computing activation energies  with the next isoconversional methods: 
 
 - Ozawa-Flynn-Wall (OFW)\
-![formula](https://render.githubusercontent.com/render/math?math=\ln{\left(\beta_{i}\right)} = \left[\ln{\left(\frac{A_{\alpha}E_{\alpha}}{g(\alpha)R}\right)}-5.331\right]-1.052\frac{E_{\alpha}}{RT_{\alpha,i}}}) 
-
 - Kissinger-Akahira-Sunose (KAS)\ 
-$\ln{\left(\frac{\beta_{i}}{T_{\alpha ,i}^{2}}\right)}\approx\ln{\left[\frac{A_\alpha R}{E_\alpha g(\alpha)}\right]}-\frac{E_\alpha}{RT_{\alpha ,i}}$
-
 - Friedman (Fr)\
-$\ln{\left(\frac{d\alpha}{dt}\right)_{\alpha ,i}} = \ln{\left[A_{\alpha}f\left(\alpha\right)\right]} - \frac{E_{\alpha}}{RT_{\alpha ,i}}$
-
 - Vyazovkin (Vy)\
-$\phi=n(n-1) - \sum_{i}^{n} \sum_{j \neq i}^{n-1} \frac{\beta_j I(E_{\alpha},T_{\alpha ,i})}{\beta_i I(E_{\alpha},T_{\alpha ,j})}$
-
 - Advanced method of Vyazovkin (aVy)\
-$\phi=n(n-1) - \sum_{i}^{n} \sum_{j \neq i}^{n-1} \frac{\beta_j J(E_{\Delta\alpha},T_{\Delta\alpha ,i})}{\beta_i J(E_{\Delta\alpha},T_{\Delta\alpha ,j})}$
+
 
 The repository consist in the following directories:
-- pyace.py. Contains the package
+- picnik.py. Contains the package
 - examples. Contains a script (example.py) which executes some commmands of pyace in order to ilustrate the suggested prcedure. And three more directories which contain data to use whith example.py:
     - Constant_E. Simulated TGA data for a process with constant activation energy.
     - Two_Steps. Simulated TGA data for a process with two steps, each with constant activation energy.
@@ -34,7 +26,7 @@ The repository consist in the following directories:
 
 ### DataExtractioin class
 
-It has methods to open the .csv files containing the thermogravimetric data as pandas DataFrames for the experimental data, computing and adding the conversion for the process ($\alpha$) and the conversion rate ($d\alpha/dt$) as columns in the DataFrame.\
+It has methods to open the .csv files containing the thermogravimetric data as pandas DataFrames for the experimental data, computing and adding the conversion for the process and the conversion rate as columns in the DataFrame.\
 The class also has methods for creating isoconversional DataFrames of time, temperature, conversion rates (for the OFW, KAS, Fr and Vy methods) and also "advanced" DataFrames of time and temperature (for the aVy method).\
 Example:
 
