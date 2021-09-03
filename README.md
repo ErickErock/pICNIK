@@ -4,7 +4,7 @@ pICNIK is a package for isoconversional computations for non-isothermal kinetcis
 The package has an object oriented interface with two classes: DataExtraction and ActivationEnergy, with the purpose of managing the experimental data and computing activation energies (![formula](https://render.githubusercontent.com/render/math?math=E_{\alpha})) with the next isoconversional methods: 
 
 - Ozawa-Flynn-Wall (OFW)\
-$\ln{\left(\beta_{i}\right)} = \left[\ln{\left(\frac{A_{\alpha}E_{\alpha}}{g(\alpha)R}\right)}-5.331\right]-1.052\frac{E_{\alpha}}{RT_{\alpha,i}}}$ 
+![formula](https://render.githubusercontent.com/render/math?math=\ln{\left(\beta_{i}\right)} = \left[\ln{\left(\frac{A_{\alpha}E_{\alpha}}{g(\alpha)R}\right)}-5.331\right]-1.052\frac{E_{\alpha}}{RT_{\alpha,i}}}) 
 
 - Kissinger-Akahira-Sunose (KAS)\ 
 $\ln{\left(\frac{\beta_{i}}{T_{\alpha ,i}^{2}}\right)}\approx\ln{\left[\frac{A_\alpha R}{E_\alpha g(\alpha)}\right]}-\frac{E_\alpha}{RT_{\alpha ,i}}$
