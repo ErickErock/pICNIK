@@ -478,14 +478,14 @@ class DataExtraction(object):
             raise ValueError("File type not recognized")
 #-----------------------------------------------------------------------------------------------------------
     def get_avsT_plot(self):
-    """
-    Visualization method for alpha vs T
+        """
+        Visualization method for alpha vs T
 
-    Parameters:    None
+        Parameters:    None
 
-    Returns:       A matplotlib figure plotting conversion vs temperature for
-                   each heating rate in attribute Beta.
-    """
+        Returns:       A matplotlib figure plotting conversion vs temperature for
+                       each heating rate in attribute Beta.
+        """
         for i in range(len(self.DFlis)):
             plt.plot(self.T[i],
                      self.alpha[i],
@@ -496,14 +496,14 @@ class DataExtraction(object):
         return plt.show()
 #-----------------------------------------------------------------------------------------------------------
     def get_dadtvsT_plot(self):
-    """
-    Visualization method for da_dt vs T
+        """
+        Visualization method for da_dt vs T
 
-    Parameters:    None
+        Parameters:    None
 
-    Returns:       A matplotlib figure plotting conversion rate vs temperature 
-                   for each heating rate in attribute Beta.
-    """
+        Returns:       A matplotlib figure plotting conversion rate vs temperature 
+                       for each heating rate in attribute Beta.
+        """
         for i in range(len(self.DFlis)):
             plt.plot(self.T[i],
                      self.da_dt[i],
@@ -515,14 +515,14 @@ class DataExtraction(object):
 
 #-----------------------------------------------------------------------------------------------------------
     def get_avst_plot(self):
-    """
-    Visualization method for alpha vs t
+        """
+        Visualization method for alpha vs t
 
-    Parameters:    None
+        Parameters:    None
 
-    Returns:       A matplotlib figure plotting conversion vs time for each 
-                   heating rate in attribute Beta.
-    """
+        Returns:       A matplotlib figure plotting conversion vs time for each 
+                       heating rate in attribute Beta.
+        """
         for i in range(len(self.DFlis)):
             plt.plot(self.t[i],
                      self.alpha[i],
@@ -533,14 +533,14 @@ class DataExtraction(object):
         return plt.show()
 #-----------------------------------------------------------------------------------------------------------
     def get_dadtvst_plot(self):
-    """
-    Visualization method for da_dt vs t
+        """
+        Visualization method for da_dt vs t
 
-    Parameters:    None
+        Parameters:    None
 
-    Returns:       A matplotlib figure plotting conversion rate vs time for 
-                   each heating rate in attribute Beta.
-    """
+        Returns:       A matplotlib figure plotting conversion rate vs time for 
+                       each heating rate in attribute Beta.
+        """
         for i in range(len(self.DFlis)):
             plt.plot(self.t[i],
                      self.da_dt[i],
