@@ -1,4 +1,5 @@
 # pICNIK 
+<<<<<<< HEAD
 
 pICNIK is a package for isoconversional computations for non-isothermal kinetcis.\
 The package has an object oriented interface with two classes: DataExtraction and ActivationEnergy, with the purpose of managing the experimental data and computing activation energies ($E_{\alpha}$) with the next isoconversional methods: 
@@ -8,6 +9,26 @@ The package has an object oriented interface with two classes: DataExtraction an
 - Friedman (Fr)
 - Vyazovkin (Vy)
 - Advanced method of Vyazovkin (aVy)
+=======
+
+pICNIK is a package for isoconversional computations for non-isothermal kinetcis.\
+The package has an object oriented interface with two classes: DataExtraction and ActivationEnergy, with the purpose of managing the experimental data and computing activation energies  with the next isoconversional methods: 
+
+- Ozawa-Flynn-Wall (OFW)\
+- Kissinger-Akahira-Sunose (KAS)\ 
+- Friedman (Fr)\
+- Vyazovkin (Vy)\
+- Advanced method of Vyazovkin (aVy)\
+
+
+The repository consist in the following directories:
+- picnik.py. Contains the package
+- examples. Contains a script (example.py) which executes some commmands of pyace in order to ilustrate the suggested prcedure. And three more directories which contain data to use whith example.py:
+    - Constant_E. Simulated TGA data for a process with constant activation energy.
+    - Two_Steps. Simulated TGA data for a process with two steps, each with constant activation energy.
+    - Variable_E. Simulated TGA data for a process with variable activation energy.
+
+>>>>>>> 79a126b8eb2c5e0f27c2767e169cf4aed46386ad
 
 ### Installation
 
@@ -17,7 +38,11 @@ The package has an object oriented interface with two classes: DataExtraction an
 
 ### DataExtractioin class
 
+<<<<<<< HEAD
 It has methods to open the .csv files containing the thermogravimetric data as pandas DataFrames for the experimental data, computing and adding the conversion for the process ($\alpha$) and the conversion rate ($d\alpha/dt$) as columns in the DataFrame.\
+=======
+It has methods to open the .csv files containing the thermogravimetric data as pandas DataFrames for the experimental data, computing and adding the conversion for the process and the conversion rate as columns in the DataFrame.\
+>>>>>>> 79a126b8eb2c5e0f27c2767e169cf4aed46386ad
 The class also has methods for creating isoconversional DataFrames of time, temperature, conversion rates (for the OFW, KAS, Fr and Vy methods) and also "advanced" DataFrames of time and temperature (for the aVy method).\
 Example:
 
