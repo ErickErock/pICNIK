@@ -1,66 +1,47 @@
 #!/usr/bin/python3
 
 import sys
-import clases as pyace
+import picnik as pnk
 
 if __name__=='__main__':
     files = sys.argv[1:] # the files in beta ascendent order
     print(files)
     
-    #First,
-    #Data extraction and preprocessing is made
-    #with DataExtraction class as follows:
-    xtr = pyace.DataExtraction() #Creates the extractor object
-    xtr.set_data(files) #Needs the file list as parameter
-    xtr.data_extraction() #This method fills the internal variables: Beta, BetaCC and DFlis 
-    #The variables generated can be called as:
-    beta = xtr.get_beta()
-    betaCC = xtr.get_betaCC()
-    DFlis = xtr.get_DFlis()
-    xtr.isoconversional() #This method fills the internal variables: da_dt, T (for da_dt), t (for da_dt) and Iso_convDF
-    #Acces to generated data:
-    da_dt = xtr.get_dadt() 
-    T = xtr.get_T()
-    t = xtr.get_t()
-    TempIsoDF = xtr.get_df_isoconv()
-    xtr.adv_isoconversional() #This method fills the AdvIsoDF internal variable
-    df_adv = xtr.get_adviso()
-    #Or the main data can be assigned with:
-    [df_iso, df_adv, da_dt,T,t,Beta] = xtr.get_values()
+    #instanciate DataExtraction object
+    xtr = pnk.DataExtraction()
+    #read file (this method has an optional "encoding" parameter)
+    Beta, T0 = xtr.read_files(files)
+    #compute files for a given temperature range
+    xtr.Conversion(323,1023)
+    #create isoconversional pandas DataFrames
+    TDF,tDF,dDF,TaDF,taDF = xtr.Isoconversion(advanced=True,
+                                              method='points',
+                                              N = len(xtr.TempIsoDF))
+   
+
+    #instantiate ActivationEnergy object
+    ace = pnk.ActivationEnergy(Beta, #or xtr.Beta
+                               T0, #or xtr.T0
+                               TDF, #or xtr.TempIsoDF
+                               dDF, #or xtr.diffIsoDF
+                               TaDF, #or xtr.TempAdvIsoDF
+                               taDF) #or xtr.timeAdvIsoDF
+    #Compute activation energies with their associated errors
+    E_Fr = ace.Fr()      #for the Friedman method
+    E_OFW = ace.OFW()    #for the Ozawa-Flynn-Wall method
+    E_KAS = ace.KAS()    #for the Kissinger-Akahira-Sunose method
+    E_Vy = ace.Vy(bounds=(1,300),
+                  method='senum-yang')      #for the Vyazovkin method
+    E_aVy = ace.aVy(bounds=(1,300),
+                    var='tme',
+                    method='trapezoid')      #for the advanced Vyazovkin method
 
 
-    #Then, Activation energy
-    #Computations are made with the
-    #ActivationEnergy class
-    ace = pyace.ActivationEnergy(df_iso, Beta, df_adv) 
-    E_FOW = ace.FOW() #This method returns E_FOW
-    E_KAS = ace.KAS() #This method returns E_KAS
-    bounds = ace.set_bounds((1,300)) # user can delimit bounds for evaluating E with Vy and Adv_Vy methods
-    print("The bounds for evaluating E are "+str(bounds))
-    ace.visualize_omega(0) # this method allows to evaluate if the bounds are relevant for the i-th alpha value in the IsoDF. 
-    ace.vy(bounds)
-    ace.vyz(bounds)
-    DeltaAlpha = ace.DeltaAlpha()
-    print('The integration interval for the Advanced Vyazovkin is:' + str(DeltaAlpha))
-
-    #Activation Energies
-    E_FOW = ace.get_E_FOW()
-    E_KAS = ace.get_E_KAS()
-    E_Vy  = ace.get_Evy()
-    E_AdVy= ace.get_EVyz()
-
-    #Finally,
-    #to save tha data generated
-    #the save_df module is used
-    xtr.save_df(E_FOW,E_KAS,E_Vy,E_AdVy,dialect='csv') # dialect can be either 'xlsx' or 'csv'
-    #The output of this method
-    #depends on the chosen
-    #dialect. If the dialect
-    #is 'xlsx'the output will
-    #be an excel file with n+1
-    #sheets, n containing the 
-    #processed data and one
-    #containing the Activation 
-    #Energies. If the dialect 
-    # is 'csv' the out put will 
-    #be n+1 csv files. 
+    #export results as xlsx 
+    ace.export_Ea(E_Fr = True,
+                  E_OFW = True,
+                  E_KAS = True,
+                  E_Vy = True,
+                  E_aVy = True,
+                  file_t= "xlsx" )
+  
