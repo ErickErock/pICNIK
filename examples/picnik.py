@@ -1506,10 +1506,39 @@ class ActivationEnergy(object):
                        If 'csv' is selected, one 'csv' file containing the activation energies. 
        """
         TempIsoDF    = self.TempIsoDF
-        TempAdvIsoDF = self.TempAdvIsoDF
         Beta         = self.Beta
 
         print(f"Exporting activation energies...")
+
+        TempAdvIsoDF = self.TempAdvIsoDF
+        #The advanced Vyazovkin method has to be exported
+        #apart because its index length is differet from the
+        #other methods
+        if E_aVy == True:
+            #Activation energies
+            aVy = self.E_aVy
+            #DataFrame columns
+            ad_col = ['alpha',                       #Conversion
+                      'Temperature [K]',             #Temperature
+                      'adv.Vyazovkin [kJ/mol]',      #Activation energies in kJ/mol
+                      'aVy_error [kJ/mol]']          #Associated error in kJ/mol
+            #pandas.DataFrame to save the advanced Vyazovking method results
+            adv_DF = pd.DataFrame([],columns = ad_col)
+            #Conversion values for the isoconversional evaluations
+            adv_alps = TempAdvIsoDF.index.values[1:]
+            #Mean values for temperature at isoconversional values
+            adv_Temp = self.T_prom(TempAdvIsoDF)
+            #Filling the columns with thier corresponding values
+            adv_DF[ad_col[0]] = adv_alps             
+            adv_DF[ad_col[1]] = adv_Temp[1:]
+            adv_DF[ad_col[2]] = aVy[0]
+            adv_DF[ad_col[3]] = aVy[1]
+        
+            print(TempAdvIsoDF, adv_DF)
+
+        else:
+            pass
+
         #Conversion values for the isoconversional evaluations
         alps     = TempIsoDF.index.values
         #Mean values for temperature at isoconversional values
@@ -1575,55 +1604,29 @@ class ActivationEnergy(object):
             DF_Nrgy['Vyazovkin [kJ/mol]'] = E_Vy[0]        #Activation energies in kJ/mol
             DF_Nrgy['Vy_error [kJ/mol]']=E_Vy[1]           #Associated error in kJ/mol
         else:
-            pass
+            pass        
 
-        #The advanced Vyazovkin method has to be exported
-        #apart because its index length is differet from the
-        #other methods
-        if E_aVy == True:
-            #pandas.DataFrame to save the advanced Vyazovking method results
-            adv_DF = pd.DataFrame()
-            #Activation energies
-            aVy = self.E_aVy
-            #DataFrame columns
-            ad_col = ['alpha',                       #Conversion
-                      'Temperature [K]',             #Temperature
-                      'adv.Vyazovkin [kJ/mol]',      #Activation energies in kJ/mol
-                      'aVy_error [kJ/mol]']          #Associated error in kJ/mol
-            #Conversion values for the isoconversional evaluations
-            adv_alps = TempAdvIsoDF.index.values[1:]
-            #Mean values for temperature at isoconversional values
-            adv_Temp = self.T_prom(TempAdvIsoDF)
-   
-            #Filling the columns with thier corresponding values
-            adv_DF['alpha'] = adv_alps             
-            adv_DF['Temperature [K]'] = adv_Temp[1:]
-            adv_DF['adv.Vyazovkin [kJ/mol]'] = aVy[0]
-            adv_DF['aVy_error [kJ/mol]']=aVy[1]
 
-        else:
-            pass
-
+        #For methods Fr, KAS, OFW and Vy
+        name1 = 'Activation_Energies_Results.'
+        #For method aVy
+        name2 = 'Advanced_Vyazovkin_Results.'
 
         #The format of the file is set with the parameter "file_t"
         if(file_t=='xlsx'):
-            #For methods Fr, KAS, OFW and Vy
-            name1 = 'Activation_Energies_Results.xlsx'
-            #For method aVy
-            name2 = 'Advanced_Vyazovkin_Results.xlsx'
-            #If no parameter was set to True, do nothing
+            
             if len(columns) == 2:
                 pass
             #else, create the corresponding file
             else:
-                with pd.ExcelWriter(name1) as writer1:
+                with pd.ExcelWriter(name1+'xlsx') as writer1:
                     DF_Nrgy.to_excel(writer1, sheet_name='Activation Energies',index=False)   
 
                 print('Results saved as {0}'.format(name1)) 
 
 
-            if E_aVy == self.E_aVy:
-                with pd.ExcelWriter(name2) as writer2:
+            if aVy == self.E_aVy:
+                with pd.ExcelWriter(name2+'xlsx') as writer2:
                     adv_DF.to_excel(writer2, sheet_name='Advanced Vyazovkin Method',index=False)
                 print('Results saved as {0}'.format(name2)) 
     
@@ -1633,23 +1636,19 @@ class ActivationEnergy(object):
             
    
         elif(file_t=='csv'):
-            #For methods Fr, KAS, OFW and Vy
-            name1 ='Activation_Energies_Results.csv'
-            #For method aVy
-            name2 = 'Advanced Vyazovkin Method.csv'
             #If no parameter was set to True, do nothing
             if len(columns) == 2:
                 pass
             #else, create the corresponding file
             else:
-                DF_Nrgy.to_csv(name1, 
+                DF_Nrgy.to_csv((name1+'csv'), 
                                encoding='utf8', 
                                sep=',',
                                index=False)
 
                 print('Results saved as {0}'.format(name1)) 
-            if E_aVy == self.E_aVy:
-                adv_DF.to_csv(name2, 
+            if aVy == self.E_aVy:
+                adv_DF.to_csv((name2+'csv'), 
                                encoding='utf8', 
                                sep=',',
                                index=False)
