@@ -1701,5 +1701,48 @@ class ActivationEnergy(object):
         self.a_pred = a_pred
        
         return (self.a_pred, T, t)
+#----------------------------------------------------------------
+
+    def compensation_effect(self,B, f_alpha = None):
+        """
+        Experimental method. May raise error or give unreliable results.
 
 
+
+        Parameters:   f_alpha  : List of functions to iterate. 
+                                 By default the function will iterate over all the functions
+                                 on the rxn_models.py file 
+                      B  : Float. Value of the heating rate for the prediction.
+                      E  : numpy array containing the values of activation energy.
+
+
+        Returns:      a  : 
+                      b  : 
+        """
+        if B not in self.Beta:
+            # seria mejor mandar una excepcion?
+            print("not in the experimental heating rates")
+            return
+
+        index = Beta.index(B)
+        column = self.TempIsoDF.columns[index]
+        x = self.TempIsoDF[column]
+        y = self.diffIsoDF[column]
+        alpha = self.TempIsoDF.index.values
+        # f_alpha: iterator
+        if f_alpha is None:
+            f_alpha = filter(callable, list(rxn_models.__dict__.values()))
+
+        AVals = []
+        EVals = []
+        for f in f_alpha:
+            def g(xaux,A,E):
+                return A*np.exp(-E/(R*xaux))*f(alpha)
+            popt, pcov = curve_fit(g, x, y)
+            AVals += [popt[0]]
+            EVals += [popt[1]]
+
+        LR = self.linregress(AVals,EVals)
+        a = LR.slope
+        b = LR.intercept
+        return a,b
