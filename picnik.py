@@ -1994,3 +1994,44 @@ class ActivationEnergy(object):
                 tp = np.sum(np.array(t_tmp))
                 t_p.append(tp)
             return np.array(t_p)
+#---------------------------------------------------------------
+    def export_prediction(self, time, Temp, alpha, name="prediction.csv" ):
+        """
+        Method to export the kinetic prediction.
+
+        Parameters:     time    : Time array.
+
+                        Temp    : Temperature array.
+
+                        alpha   : Conversion array.
+
+                        name    : File name in .csv format.
+
+        Returns:    None. A file will be created according to the working path or path specified in `name`.
+        """
+        predDF = pd.DataFrame({'time':time,
+                               'Temperature':Temp,
+                               'conversion':alpha})
+        predDF.to_csv(name,index=False)
+#---------------------------------------------------------------
+    def export_kinetic_triplet(self, E, ln_A, g_a, name="kinetic_triplet.csv" ):
+        """
+        Method to export the kinetic prediction.
+
+        Parameters:     time    : Activation energy array.
+
+                        Temp    : Natural logarithm of pre-exponential factor array.
+
+                        g_a     : Model reaction array.
+
+                        name    : File name in .csv format.
+
+        Returns:    None. A file will be created according to the working path or path specified in `name`.
+        """
+        kinDF = pd.DataFrame({'E':E,
+                               'ln_A':ln_A,
+                               'g(alpha)':g_a})
+        kinDF.to_csv(name,index=False)
+
+
+
