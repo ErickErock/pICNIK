@@ -1,6 +1,7 @@
 """
 Ths module contains the reaction model functions $f(\alpha)$
 """
+import numpy as np
 
 ## Power Laws
 
@@ -186,7 +187,7 @@ def R3(a, integral =  False):
     Returns:    f(a): Reaction model evaluated on the conversion degree
     """
     if integral == True:
-        1 - ((1-a)**(1/3))
+        return 1 - ((1-a)**(1/3))
     else:
         return 3*((1-a)**(2/3))
 
@@ -201,6 +202,6 @@ def R2(a, integral =  False):
     Returns:    f(a): Reaction model evaluated on the conversion degree
     """
     if integral == True:
-        1 - ((1-a)**(1/2))
+        return 1 - ((1-a)**(1/2))
     else:
         return 2*((1-a)**(1/2))
