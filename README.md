@@ -33,7 +33,7 @@ It has methods to open the .csv files containing the thermogravimetric data as p
 The class also has methods for creating isoconversional DataFrames of time, temperature, conversion rates (for the OFW, KAS, Fr and Vy methods) and also "advanced" DataFrames of time and temperature (for the aVy method).\
 Example:
 
-    import picnik as pnk
+    from picnik import picnik as pnk
  
     files = ["HR_1.csv","HR_2.csv",...,"HR_n.csv"]
     xtr = pnk.DataExtraction()
@@ -80,11 +80,11 @@ The constructor of this class needs six arguments, a list/array/tuple of Tempera
     g_r  = ace.reconstruction(E_aVy,np.exp(ln_A), 3)
 
 #### Isothermal prediction
-The `ActivationEnergy`class contains three methods for isothermal prediction, each based on a different equation:
+The `ActivationEnergy`class contains three methods for isothermal prediction, each based on a different equation:\
 
- a) Model based prediction:          $t_{\alpha_{i}} = \frac{\sum_{i}g(\alpha_{i})}{A\exp{(-\frac{E}{RT_{0}})}}$   ...(1)
- b) Isoconversion prediction A:      $t_{\alpha_{i}} = \frac{\int_{t_{\alpha_{0}}}^{t_{\alpha_{i}}}\exp(-\frac{E}{RT(t)})}{\exp{(-\frac{E}{RT_{0}})}}$   ...(2)
- c) Isoconversion prediction B:      $J[E_{\alpha},T(t)]=J[E_{\alpha},T_{0}]$   ...(3)
+ a) Model based prediction:          $t_{\alpha_{i}} = \frac{\sum_{i}g(\alpha_{i})}{A\exp{(-\frac{E}{RT_{0}})}}$   ...(1)\
+ b) Isoconversion prediction A:      $t_{\alpha_{i}} = \frac{\int_{t_{\alpha_{0}}}^{t_{\alpha_{i}}}\exp(-\frac{E}{RT(t)})}{\exp{(-\frac{E}{RT_{0}})}}$   ...(2)\
+ c) Isoconversion prediction B:      $J[E_{\alpha},T(t)]=J[E_{\alpha},T_{0}]$   ...(3)\
 
  As it can be seen from the expressions above, the methods do not compute conversion as a funciton of time, but they compute the time required to reach a given conversion
 
