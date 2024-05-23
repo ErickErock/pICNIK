@@ -38,7 +38,7 @@ For informationn about the depencies we refer the user to:
     (*) This module come along with the picnik package. https://github.com/ErickErock/pICNIK/ 
 """
 #-----------------------------------------------------------------------------------------------------------
-class DataExtraction(object):
+class DataExtraction:
     """
     Extractor to manipulate raw data to create lists and Data Frames 
     that will be used to compute the Activation Energy.
@@ -231,8 +231,6 @@ class DataExtraction(object):
                     Temp.append(NDFl[i]['Temperature [K]'].values[j])
                     time.append(NDFl[i][NDFl[i].columns[0]].values[j])
                     diff.append(NDFl[i]['da/dt'].values[j])
-                else:
-                    pass
             alpha.append(np.array(a))
             T.append(np.array(Temp))
             t.append(np.array(time))
@@ -356,7 +354,7 @@ class DataExtraction(object):
         self.timeIsoDF  = timeIsoDF
         self.diffIsoDF  = diffIsoDF
         
-        if advanced == True:
+        if advanced:
         #Conversion array based on the number of points.
             if method == 'points':
                 adv_alps, d_a = np.linspace(alpha[-1][0],alpha[-1][-1],N,retstep=True)
@@ -395,8 +393,6 @@ class DataExtraction(object):
             self.timeAdvIsoDF = timeAdvIsoDF      #Isoconversional DataFrame of time for the advanced Vyazovkin method (aVy)
             self.diffAdvIsoDF = diffAdvIsoDF      #Isoconversional DataFrame of conversion rate for the advanced Vyazovkin method (aVy)
             self.d_a          = d_a               #Size of the \Delta\alpha step
-        else:
-            pass
         
         print(f'Done')
 
@@ -582,10 +578,9 @@ class DataExtraction(object):
                      self.da_dt[i],
                      label=str(np.round(self.Beta[i],decimals=1))+' K/min')
             plt.xlabel('T [K]')
-            plt.ylabel(r'$\text{d}\alpha/\text{d}t [min$^{-1}$]')
+            plt.ylabel(r'$\text{d}\alpha/\text{d}t [min$^{-1}]$')
             plt.legend()
         return plt.show()
-
 #-----------------------------------------------------------------------------------------------------------
     def get_avst_plot(self):
         """
@@ -619,12 +614,11 @@ class DataExtraction(object):
                      self.da_dt[i],
                      label=str(np.round(self.Beta[i],decimals=1))+' K/min')
             plt.xlabel(self.DFlis[i].columns[0])
-            plt.ylabel('$\alpha$')
+            plt.ylabel(r'$\alpha$')
             plt.legend()
         return plt.show()
 #-----------------------------------------------------------------------------------------------------------
-#-----------------------------------------------------------------------------------------------------------
-class ActivationEnergy(object):
+class ActivationEnergy:
     """
 	Uses the attributes of DataExtraction to compute activation energy values based on five methods: 
     Friedman, FOW, KAS, Vyazovkin and Advanced Vyazovkin. 
@@ -907,7 +901,6 @@ class ActivationEnergy(object):
             y = p[j]*((np.sum(1/(p)))-(1/p[j]))
             omega_i.append(y)
         return np.sum((omega_i))
-   
 #-----------------------------------------------------------------------------------------------------------
     def visualize_omega(self,row,bounds=(1,300),N=1000,method = 'senum-yang'):
         """
@@ -949,7 +942,6 @@ class ActivationEnergy(object):
         plt.grid(True)
 
         return plt.show()
-
 #-----------------------------------------------------------------------------------------------------------        
     def variance_Vy(self, E,row_i, method):
 
@@ -1061,7 +1053,6 @@ class ActivationEnergy(object):
         error = np.mean(np.array([abs(E-zeros[0]), abs(E-zeros[1])]))
 
         return error         
-      
 #-----------------------------------------------------------------------------------------------------------
     def error_Vy(self,E, method):
         """
@@ -1126,7 +1117,6 @@ class ActivationEnergy(object):
         self.E_Vy = (E_Vy, error) 
         print(f'Done.')
         return self.E_Vy     
-   
 #-----------------------------------------------------------------------------------------------------------              
     def J_Temp(self, E, inf, sup):
         """
@@ -1150,7 +1140,7 @@ class ActivationEnergy(object):
 
         return J
 #-----------------------------------------------------------------------------------------------------------        
-    def J_time(self, E, row_i, col_i, N=1, method='trapezoid',ti=None, tf=None, Beta=None, T_func=None, isothermal=False, isoT=0):
+    def J_time(self, E, row_i, col_i,ti=None, tf=None, Beta=None, T_func=None, isothermal=False, isoT=0):
         """
         Time integral for the Advanced Vyazovkin Treatment. Considering a linear heating rate.
 
@@ -1165,10 +1155,6 @@ class ActivationEnergy(object):
                                containing the isoconversional times for evenly spaced conversion 
                                values.
 
-                     method  : Numerical integration method. Can be 'trapezoid', 'simpson', 'romberg' or 'quad'.
-                               The method corresponds to those implemented in the scipy.integrate
-                               subpackage.
-
         Returns:     J_t     : Float. Value of the integral obtained by a numerical integration method. 
         """    
 
@@ -1176,46 +1162,33 @@ class ActivationEnergy(object):
             T0 = args[0]
             B  = args[1]
             E  = args[2]
-            if T_func == None:
+            if T_func is None:
                 T  = T0+(B*t)   
             else:
-                T  = T_func(t)
+                T  = T_func(np.array([t]))[0]
             return np.exp(-E/(self.R*(T)))
        
-        if tf == None:
+        if tf is None:
             timeAdvIsoDF   = self.timeAdvIsoDF
             #Heating rate for the computation
             B  = self.Beta[col_i]
             #Initial experimental temperature
             T0 = self.T0[col_i]
             t0 = timeAdvIsoDF[timeAdvIsoDF.columns[col_i]][timeAdvIsoDF.index.values[row_i]]
-            t  = timeAdvIsoDF[timeAdvIsoDF.columns[col_i]][timeAdvIsoDF.index.values[row_i+N]]
+            t  = timeAdvIsoDF[timeAdvIsoDF.columns[col_i]][timeAdvIsoDF.index.values[row_i+1]]
         else:
             t0 = ti
             t  = tf
-            if isothermal == False:
+            if isothermal is False:
                 T0 = np.mean(self.T0)
                 B  = Beta
             else:
                 T0 = isoT
                 B = 0
-        if method == 'trapezoid':
-            J_t = integ.Trapezoid(time_int, t0, t, N, T0, B, E, Romberg=False)[0]
-            return J_t
-        elif method == 'simpson':
-            J_t = integ.Simpson(time_int, t0, t, N, T0, B, E)[0]
-            return J_t
-        elif method == 'quad':
-            J_t = integrate.quad(time_int,t0,t,args=(T0,B,E))[0]
-            return J_t
-        elif method == 'romberg':
-            J_t = integ.Romberg(time_int, t0, t, N, T0, B, E)[0]
-            return J_t
-        else:
-            raise ValueError('method not recognized')
-
+        J_t = integ.Trapezoid(time_int, t0, t, 1, T0, B, E)[0]
+        return J_t
 #-----------------------------------------------------------------------------------------------------------        
-    def adv_omega(self,E, row, var = 'time', N = 1, method='trapezoid'):
+    def adv_omega(self,E, row, var = 'time'):
         """
         Function to minimize according to the advanced Vyazovkin treatment:
 
@@ -1230,10 +1203,6 @@ class ActivationEnergy(object):
 
                       var     : The variable to perform the integral with, it can be either 'time' 
                                 or 'Temperature'
-
-                      method  : Numerical integration method. Can be 'trapezoid', 'simpson' or 
-                                'quad'. The method correspond to those implemented in the 
-                                scipy.integrate subpackage.
 
         Returns:      O       : Float. Value of the advanced omega function for a given E.
         """
@@ -1258,16 +1227,14 @@ class ActivationEnergy(object):
         elif var == 'time':
             I_B = np.array([self.J_time(E,
                                         row,
-                                        i,
-                                        N,
-                                        method) 
+                                        i) 
                             for i in range(len(timeAdvIsoDF.columns))])
             #Double sum
             omega_i = np.array([I_B[k]*((np.sum(1/(I_B)))-(1/I_B[k])) for k in range(len(Beta))])
             O = np.array(np.sum((omega_i)))
             return O        
 #-----------------------------------------------------------------------------------------------------------
-    def visualize_advomega(self,row,var='time',bounds=(1,300),n=1000, N = 1, method='trapezoid'):
+    def visualize_advomega(self,row,var='time',bounds=(1,300),n=1000):
         """
         Method to visualize adv_omega function. 
 
@@ -1282,10 +1249,6 @@ class ActivationEnergy(object):
 
                       N       : Int. Number of points in the E array for the plot. Default 1000.
 
-                      method  : Numerical integration method. Can be 'trapezoid', 'simpson'
-                                or 'quad'. The method correspond to those implemented in 
-                                the scipy.integrate subpackage. Default 'trapezoid'.
-
 
         Returns:      A matplotlib plot of adv_omega vs E 
         """
@@ -1298,7 +1261,7 @@ class ActivationEnergy(object):
         #Activation energy (independent variable) array
         E = np.linspace(bounds[0], bounds[1], n)
         #Evaluation of \Omega(E)
-        O = np.array([float(self.adv_omega(E[i],row,var,N,method)) for i in range(len(E))])
+        O = np.array([float(self.adv_omega(E[i],row,var)) for i in range(len(E))])
         plt.style.use('seaborn-whitegrid')
         plt.plot(E,O,color='teal',label=r'$\alpha$ = '+str(np.round(timeAdvIsoDF.index[row],decimals=3)))
         plt.ylabel(r'$\Omega\left(E_{\alpha}\right)$')
@@ -1308,7 +1271,7 @@ class ActivationEnergy(object):
 
         return plt.show()
 #-----------------------------------------------------------------------------------------------------------        
-    def variance_aVy(self, E, row_i, var = 'time', N=1, method = 'trapezoid'):
+    def variance_aVy(self, E, row_i, var = 'time'):
         """
         Method to calculate the variance of the activation energy E obtained with the Vyazovkin 
         treatment. The variance is computed as:
@@ -1324,10 +1287,6 @@ class ActivationEnergy(object):
 
                         var    : The variable to perform the integral with, it can be either
                                 'time' or 'Temperature'
-
-                        method : Numerical integration method. Can be 'trapezoid', 'simpson'
-                                 or 'quad'. The method correspond to those implemented in 
-                                 the scipy.integrate subpackage. Default 'trapezoid'.
 
         Returns:        Float object. Value of the variance associated to a given E.  
 
@@ -1347,7 +1306,7 @@ class ActivationEnergy(object):
             #initial temperature
             T0  = self.T0
             #time integrals into a list comprehension        
-            J = np.array([self.J_time(E, row_i, i, N,method) for i in range(len(self.Beta))])     
+            J = np.array([self.J_time(E, row_i, i) for i in range(len(self.Beta))])     
             #Each value to be compared with one (s-1) to compute the variance
             s = np.array([J[i]/J for i in range(len(J))])
             
@@ -1373,7 +1332,7 @@ class ActivationEnergy(object):
             raise ValueError('variable not valid')
 
 #-----------------------------------------------------------------------------------------------------------        
-    def psi_aVy(self, E, row_i, var = 'time', N = 1, p =0.95, method = 'trapezoid'):
+    def psi_aVy(self, E, row_i, var = 'time', p =0.95):
         """
         Method to calculate the F distribution to minimize for the Vyazovkin method.
         The distribution is computed as: 
@@ -1393,10 +1352,6 @@ class ActivationEnergy(object):
                         var    : The variable to perform the integral with, it can be either
                                 'time' or 'Temperature'
 
-                        method : Numerical integration method. Can be 'trapezoid', 'simpson'
-                                 or 'quad'. The method correspond to those implemented in 
-                                 the scipy.integrate subpackage. Default 'trapezoid'.
-
         Returns:        Psi    : Float. Value of the distribution function that sets the lower
                                  and upper confidence limits for E.  
         --------------------------------------------------------------------------------------------
@@ -1409,16 +1364,14 @@ class ActivationEnergy(object):
         n1, n2 = len(self.Beta)*(len(self.Beta)-1)-1, len(self.Beta)*(len(self.Beta)-1)-1
         F = f.ppf(p,n1,n2)
             
-        #Quadrature method from parameter "method"              
-        method = method
         #Psi evaluation interval
         E_p    = np.linspace(1,E+150,150)  #intervalo para evaluar Psi
         #'True' value of the activation energy in kJ/mol for a given conversion (row_i)
         E_min  = E
         #Variance of the 'True' activation energy 
-        s_min  = self.variance_aVy(E_min, row_i,var, N,method) 
+        s_min  = self.variance_aVy(E_min, row_i,var) 
         #Variance of the activation energy array E_p 
-        s      = np.array([self.variance_aVy(E_p[i], row_i, var, N,method) for i in range(len(E_p))])
+        s      = np.array([self.variance_aVy(E_p[i], row_i, var) for i in range(len(E_p))])
         
         #Psi function moved towards negative values (f-1) in order 
         #to set the confidence limits such that \psy = 0 for those values
@@ -1439,7 +1392,7 @@ class ActivationEnergy(object):
 
         return error, Psy_to_cero, E_p 
 #-----------------------------------------------------------------------------------------------------------            
-    def error_aVy(self, E, var = 'time', N = 1, p =0.95, method = 'trapezoid'):
+    def error_aVy(self, E, var = 'time', p =0.95):
         """
         Method to calculate the distribution to minimize for the Vyazovkin method.
 
@@ -1449,21 +1402,16 @@ class ActivationEnergy(object):
                         var    : The variable to perform the integral with, it can be either
                                 'time' or 'Temperature'
 
-                        method : Numerical integration method. Can be 'trapezoid', 'simpson'
-                                 or 'quad'. The method correspond to those implemented in 
-                                 the scipy.integrate subpackage. Default 'trapezoid'.
-
         Returns:        error_aVy : Array of error values associated to the array of activation 
                                     energies obtained by the Vyazovkin method.  
         """ 
-        method = method
 
-        error_aVy = np.array([self.psi_aVy(E[i], i, var=var, N=N, p=p, method=method)[0] for i in range(len(E))])
+        error_aVy = np.array([self.psi_aVy(E[i], i, var=var, p=p)[0] for i in range(len(E))])
 
         return error_aVy  
 
 #-----------------------------------------------------------------------------------------------------------
-    def aVy(self,bounds, var='time', N = 1, p= 0.95, method='trapezoid', strat = 'min'):
+    def aVy(self,bounds, var='time', p= 0.95, strat = 'min'):
         """
         Method to compute the Activation Energy based on the Advanced Vyazovkin treatment.
         \Omega(E_{\alpha})= min[ sum_{i}^{n}\sum_{j}^{n-1}[J(E,T_{i})]/[J(E,T_{j})] ]
@@ -1477,10 +1425,6 @@ class ActivationEnergy(object):
 
                       var    : The variable to perform the integral with, it can be either
                                'time' or 'Temperature'
-
-                      method  : Numerical integration method. Can be 'trapezoid', 'simpson'
-                                or 'quad'. The method correspond to those implemented in 
-                                the scipy.integrate subpackage. Default 'trapezoid'.
 
         Returns:      E_Vy   : numpy array containing the activation energy values
                                obtained by the Vyazovkin method. 
@@ -1499,10 +1443,10 @@ class ActivationEnergy(object):
         print(f'Advanced Vyazovkin method: Computing activation energies...')
         
         if strat == 'min':
-            E_aVy    = [minimize_scalar(self.adv_omega,bounds=bounds,args=(m,var,N,method), method = 'bounded').x 
-                        for m in range(len(timeAdvIsoDF.index)-N)]
+            E_aVy    = [minimize_scalar(self.adv_omega,bounds=bounds,args=(m,var), method = 'bounded').x 
+                        for m in range(len(timeAdvIsoDF.index)-1)]
 
-            error   = self.error_aVy(E_aVy, var=var, N=N, p=p, method=method)
+            error   = self.error_aVy(E_aVy, var=var, p=p)
 
         elif strat == 'quad_fit':
             E_aVy = []
@@ -1514,8 +1458,8 @@ class ActivationEnergy(object):
                 return (A*(x**2))+(B*x) + C
 
             E = np.linspace(bounds[0], bounds[1], 500)
-            for r in range(len(timeAdvIsoDF.index)-N):
-                O = self.adv_omega(E, r, var = var, N = N, method=method) 
+            for r in range(len(timeAdvIsoDF.index)-1):
+                O = self.adv_omega(E, r, var = var) 
                 popt, pcov = curve_fit(quadratic, E, O, p0=[1,1,1])
                 
                 print(popt)
@@ -1557,7 +1501,7 @@ class ActivationEnergy(object):
         return T_prom
 #-----------------------------------------------------------------------------------------------------------
 
-    def export_Ea(self, E_Fr=False, E_OFW=False, E_KAS=False, E_Vy=False, E_aVy=False, N = 1, file_t="xlsx" ):
+    def export_Ea(self, E_Fr=False, E_OFW=False, E_KAS=False, E_Vy=False, E_aVy=False, file_t="xlsx" ):
         """
         Method to export activation energy values and their uncertainty calculated as either a csv or xlsx file.
          
@@ -1572,13 +1516,14 @@ class ActivationEnergy(object):
                        E_aVy    : tuple of activation energies and its uncertainty obtained by de advanced Vyazovkin
                                 method.
 
-                       file_t   :  String. Type of file, can be 'csv' of 'xlsx'.
+                       file_t   :  String. Type of file, can be 'csv' or 'xlsx'.
                                   'xlsx' is the default value.
 
         returns:       If 'xlsx' is selected, a spreadsheet containg one sheet per experiment
                        containing the values of the activation energies. 
                        If 'csv' is selected, one 'csv' file containing the activation energies. 
        """
+        N = 1
         TempIsoDF    = self.TempIsoDF
         Beta         = self.Beta
 
@@ -1588,7 +1533,7 @@ class ActivationEnergy(object):
         #The advanced Vyazovkin method has to be exported
         #apart because its index length is differet from the
         #other methods
-        if E_aVy == True:
+        if E_aVy:
             #Activation energies
             aVy = self.E_aVy
             #DataFrame columns
@@ -1610,9 +1555,6 @@ class ActivationEnergy(object):
         
             #print(TempAdvIsoDF, adv_DF)
 
-        else:
-            pass
-
         #Conversion values for the isoconversional evaluations
         alps     = TempIsoDF.index.values
         #Mean values for temperature at isoconversional values
@@ -1624,33 +1566,25 @@ class ActivationEnergy(object):
         #If the value of a parameter is set to True two columns 
         #are added to the file: Activation energy values and its
         #associated error  
-        if E_Fr == True:
+        if E_Fr:
             E_Fr = self.E_Fr
             columns.append('Fr [kJ/mol]')
             columns.append('Fr_error [kJ/mol]')
-        else:
-            pass
 
-        if E_OFW == True:
+        if E_OFW:
             E_OFW = self.E_OFW
             columns.append('OFW [kJ/mol]')
             columns.append('OFW_error [kJ/mol]')
-        else:
-            pass
 
-        if E_KAS == True:
+        if E_KAS:
             E_KAS = self.E_KAS
             columns.append('KAS [kJ/mol]')
             columns.append('KAS_error [kJ/mol]')
-        else:
-            pass
 
-        if E_Vy == True:
+        if E_Vy:
             E_Vy = self.E_Vy
             columns.append('Vyazovkin [kJ/mol]')
             columns.append('Vy_error [kJ/mol]')
-        else:
-            pass
 
         #pandas.DataFrame to be converted to a xlsx or csv file
         DF_Nrgy = pd.DataFrame([], columns = columns)
@@ -1662,43 +1596,34 @@ class ActivationEnergy(object):
         if 'Fr [kJ/mol]' in columns:
             DF_Nrgy['Fr [kJ/mol]']=E_Fr[0]                 #Activation energies in kJ/mol
             DF_Nrgy['Fr_error [kJ/mol]']=E_Fr[1]           #Associated error in kJ/mol
-        else:
-            pass
+
         if 'OFW [kJ/mol]' in columns:
             DF_Nrgy['OFW [kJ/mol]']=E_OFW[0]               #Activation energies in kJ/mol
             DF_Nrgy['OFW_error [kJ/mol]']=E_OFW[1]         #Associated error in kJ/mol
-        else:
-            pass
+
         if 'KAS [kJ/mol]' in columns:
             DF_Nrgy['KAS [kJ/mol]'] = E_KAS[0]             #Activation energies in kJ/mol
             DF_Nrgy['KAS_error [kJ/mol]']=E_KAS[1]         #Associated error in kJ/mol
-        else:
-            pass
+
         if 'Vyazovkin [kJ/mol]' in columns:
             DF_Nrgy['Vyazovkin [kJ/mol]'] = E_Vy[0]        #Activation energies in kJ/mol
             DF_Nrgy['Vy_error [kJ/mol]']=E_Vy[1]           #Associated error in kJ/mol
-        else:
-            pass        
 
 
         #For methods Fr, KAS, OFW and Vy
-        if E_Fr == False and E_OFW == False and E_KAS == False and E_Vy == False:
+        if not E_Fr and not E_OFW and not E_KAS and not E_Vy:
             pass
         else:   
             name1 = input('Input file name for the Fr, OFW, KAS and/or Vy results:' )
         #For method aVy
-        if E_aVy == False:
-            pass
-        else:
+        if E_aVy:
             name2 = input('Input file name for the adv.Vy results:')
 
         #The format of the file is set with the parameter "file_t"
         if(file_t=='xlsx'):
             
-            if len(columns) == 2:
-                pass
-            #else, create the corresponding file
-            else:
+            if len(columns) != 2:
+            #create the corresponding file
                 with pd.ExcelWriter(name1+'xlsx') as writer1:
                     DF_Nrgy.to_excel(writer1, sheet_name='Activation Energies',index=False)   
 
@@ -1709,18 +1634,12 @@ class ActivationEnergy(object):
                 with pd.ExcelWriter(name2+'xlsx') as writer2:
                     adv_DF.to_excel(writer2, sheet_name='Advanced Vyazovkin Method',index=False)
                 print('Results saved as {0}'.format(name2)) 
-    
-            else:
-                pass
 
             
    
         elif(file_t=='csv'):
-            #If no parameter was set to True, do nothing
-            if len(columns) == 2:
-                pass
-            #else, create the corresponding file
-            else:
+            if len(columns) != 2:
+            #create the corresponding file
                 DF_Nrgy.to_csv((name1+'csv'), 
                                encoding='utf8', 
                                sep=',',
@@ -1732,213 +1651,193 @@ class ActivationEnergy(object):
                                encoding='utf8', 
                                sep=',',
                                index=False)
-            else:
-                pass
             print('Results exported') 
         else:
             raise ValueError("File type not recognized")
 
-        print(f'Done.')        
+        print(f'Done.')
+
+    def j(self,t,Ei,col,row,t_prime,B,isoT=None,T_func=None):
+        J0  = self.J_time(Ei, row, col)
+        
+        t_func = None
+        isot = 0
+        iso = False
+
+        if isoT is not None:
+            iso =True, 
+            isot = isoT
+        elif T_func is not None:
+            t_func = T_func
+        
+        Ji = self.J_time(Ei,row, col, ti=t_prime[row],tf=t,Beta=B,
+                         T_func=t_func, isothermal=iso, isoT=isot)
+        return (Ji-J0)**2
+
+    def calculate_J(self,t,Ei,row,t_prime,B,isoT,T_func):
+            J = []
+            for b in range(len(self.Beta)):
+                J.append(self.j(t,Ei,b,row,t_prime,B,isoT,T_func))
+            J = np.sum(np.array(J))
+            return J
 #-----------------------------------------------------------------------------------------------------------        
-    def prediction(self,E, B, isoT = None, T_init=None,T_func = None, alpha=0, N=1, method='trapezoid', bounds = (5,5)):
+    def modelfree_prediction(self,E, B, isoT = None, T_init=None,T_func = None, alpha=0, bounds = (5,5)):
         """
         Method to compute a model-free prediction based on the integral isoconversional principle: $g(\alpha)=constant$ which implies 
         an equality between teperature integrals to reach a given conversion: $J[E_alpha,T(t)_i] = J[E_alpha,T(t)_j]$
         where $T(t)_i and T(t)_j$ are two different temperature programs
 
-        Parameters:         E       :    Activation energy array
+        Parameters: E       :    numpy array containing the values of activation energy.
+                    B       :    float. Heating rate for a linear temperature program; T(t) = T0 +Bt
+                    isoT    :    float. Temperature for a constant temperature program (isothermal);
+                                 T = isoT = constant
+                    T_init  :    float. Initial temperature for the linear temperature program (T0). 
+                                 If none is given the value will be an average of
+                                 the experimental initial temperatures.
+                    T_func  :    function with one parameter t. 
+                                 A custom program temperature; T = T(t)
+                    alpha   :    float between 0 and 1. 
+                                 This parameter determines the starting point in the time
+                                 domain for the temperature integral. 
+                                 The default value (alpha = 0) sets the initial time to an 
+                                 averge of the experimental initial times.
+                                 Otherwise the initial time equals zero.
+                    bounds  :    a 2 element tuple with the lower and upper bounds.
+                                 As the computation of the time required to reach a given
+                                 conversion involves a minimization procedure this parameters
+                                 sets the bounds in the time domain where the minimum would
+                                 be reasonable to be found.
 
-                            B       :    Heating rate for a linear temperature program; T(t) = T0 +Bt
-                             
-                            isoT    :    Temperature for a constant temperature program (isothermal); T = isoT = constant
-
-                            T_init  :    Initial temperature for the linear temperature program (T0). 
-                                         The default value is an average of the experimental initial temperatures.
-
-                            T_func  :    A custom program temperature; T = T(t)
-
-                            alpha   :    This parameter determines the starting point in the time domain for the temperature 
-                                         integral. The default value (alpha = 0) sets the initial time to an averge of the 
-                                         experimental initial times. Otherwise the initial time equals zero.
-
-                            N       :    Data blocks for the numerical integration (see J_time).
-
-                            method  :    Numerical integration method. For more information see integration.py (help(picnik.integ)).
-
-                            bounds  :    As the computation of the time required to reach a given conversion involves a minimization
-                                         procedure this parameters sets the bounds in the time domain where the minimum would be reasonable
-                                         to be found.
-
-        Returns:            a_prime :    Conversion array
-
-                            T_prime :    Temperature array corresponding to the temperature program which the prediction is made for
-
-                            t_prime :    Predicted time to reach each converssion value in the a_prime array
+        Returns:    a_prime :    Conversion array
+                    T_prime :    Temperature array corresponding to the temperature program which the prediction is made for
+                    t_prime :    Predicted time to reach each converssion value in the a_prime array
         -----------------------------------------------------------------------------------------------------------------------------------
         References:         Granado, L., & Sbirrazzuoli, N. (2021). Isoconversional computations for nonisothermal kinetic predictions. Thermochimica Acta, 697, 178859. 
 
         """
-        def j(t,Ei,col,row):
-            
-            J0  = self.J_time(Ei,
-                              row,
-                              col,
-                              N=N,
-                              method=method)
-            if isoT != None:
-                Ji  = self.J_time(Ei,
-                                  row,
-                                  col,
-                                  N=N,
-                                  method=method,
-                                  ti = t_prime[row],
-                                  tf = t,
-                                  Beta = B,
-                                  isothermal =True, 
-                                  isoT = isoT)
-            else:
-                if T_func == None:
-                    Ji  = self.J_time(Ei,
-                                      row,
-                                      col,
-                                      N=N,
-                                      method=method,
-                                      ti = t_prime[row],
-                                      tf = t,
-                                      Beta = B)
-                else:
-                    Ji  = self.J_time(Ei,
-                                      row,
-                                      col,
-                                      N=N,
-                                      method=method,
-                                      ti = t_prime[row],
-                                      tf = t,
-                                      Beta = B,
-                                      T_func = T_func)
-            return (Ji-J0)**2
         
-        def J(t,Ei,row):
-            J = []
-            for b in range(len(Beta)):
-                J.append(j(t,Ei,b,row))
-            J = np.sum(np.array(J))
-            return J
-
-
-        Beta = self.Beta
-        T0   = self.T0
+        if T_init is None:
+            T_init = np.mean(self.T0)
+        
         tDF  = self.timeAdvIsoDF
-        
-        if T_init == None:
-            T_i = np.mean(T0)
-        else:
-            T_i = T_init
-    
         if alpha != 0:
             tDF = tDF.loc[tDF.index.values <= alpha]
             tj_init = 0
         else: 
-            t0_int = interp1d(Beta,
-                          tDF.iloc[0].values[0:len(Beta)],
+            t0_int = interp1d(self.Beta,
+                          tDF.iloc[0].values[:len(self.Beta)],
                           fill_value='extrapolate')
             tj_init = t0_int(B)
     
         t_prime = [tj_init]
         print('Beginning simulation at : ',tj_init,' min')
-        for i in range(len(tDF.index)-N):
-            tm = minimize_scalar(J,args=(E[i],i),bounds=((t_prime[i]-bounds[0]),(t_prime[i]+bounds[0])), method = 'bounded').x
-            t_prime.append(tm)
-            
+        for i in range(len(tDF.index)-1):
+            t_min = minimize_scalar(self.calculate_J,args=(E[i],i,t_prime,B,isoT,T_func),
+                                   bounds=((t_prime[i]-bounds[0]),(t_prime[i]+bounds[1])),
+                                   method = 'bounded').x
+            t_prime.append(t_min)
+
+        print("simulation completed")
         t_prime = np.array(t_prime)
         a_prime = tDF.index.values
-        if isoT != None:
-            T_prime = isoT
+        if isoT is not None:
+            T_prime = np.ones(len(t_prime))*isoT
+        elif T_func is None:
+            T_prime = T_init + (B*t_prime)
         else:
-            if T_func == None:
-                T_prime = T_i + (B*t_prime)
-            else:
-                T_prime = np.array([T_func(t_prime[i]) for i in range(len(t_prime))]) 
-        return (a_prime, T_prime, t_prime)
+            T_prime = T_func(t_prime)
+        return a_prime, T_prime, t_prime
+
 #----------------------------------------------------------------
 
     def compensation_effect(self, E, B, f_alpha = None):
         """
         Experimental method. May raise error or give unreliable results.
-        Parameters:   f_alpha  : List of functions to iterate. 
-                                 By default the function will iterate over all the functions
-                                 on the rxn_models.py file 
-                      B  : Float. Value of the heating rate for the prediction.
-                      E  : numpy array containing the values of activation energy.
-        Returns:      a  : 
-                      b  : 
+        Parameters:   E  : numpy array containing the values of activation energy.
+                      B  : float. Value of the heating rate for the dataframe index.
+                      f_alpha  : List of extra functions of models to iterate over.
+                                 By default the function will only iterate over all the functions
+                                 on the "rxn_models.py" file 
+        Returns:      ln_A: numpy array containing the values of the preexponential factor 
+                      a  : the slope of the relationship between E and A
+                      b  : the intercept of the relationship between E and A
+                      Afit: the fitted values of the preexponential factor 
+                      Efit: the fitted values of the activation energy 
         """
-        if B not in self.Beta:
-            # seria mejor mandar una excepcion?
-            print("not in the experimental heating rates")
-            return
+        
+        x,y,f_alpha,alpha = self._load_data(B,f_alpha)
+        Afit,Efit = self._fit(x,y,f_alpha,alpha)
+        a,b = self._regression(Efit,Afit)
+        ln_A = (a*E) + b
+        return ln_A, a,b, np.array(Afit), np.array(Efit)
+
+    def _load_data(self,B,f_alpha):
         Beta = list(self.Beta)
         index = Beta.index(B)
         column = self.TempIsoDF.columns[index]
-        self.TempIsoDF = self.TempIsoDF.loc[(self.TempIsoDF.index > 0.005) & (self.TempIsoDF.index < 0.995)]
-        self.diffIsoDF = self.diffIsoDF.loc[(self.diffIsoDF.index > 0.005) & (self.diffIsoDF.index < 0.995)]
-        x = self.TempIsoDF[column]
-        y = self.diffIsoDF[column]
-        alpha = self.TempIsoDF.index.values
-        # f_alpha: iterator
+        TempIsoDF = self.TempIsoDF.loc[(self.TempIsoDF.index > 0.005) & (self.TempIsoDF.index < 0.995)]
+        diffIsoDF = self.diffIsoDF.loc[(self.diffIsoDF.index > 0.005) & (self.diffIsoDF.index < 0.995)]
+        x = TempIsoDF[column].values
+        y = diffIsoDF[column].values
+        alpha = TempIsoDF.index.values
         if f_alpha is None:
-            f_alpha = filter(callable, list(rxn_models.__dict__.values()))
+            f_alpha = []
 
-        AVals = []
-        EVals = []
+        f_alpha += filter(callable, list(rxn_models.__dict__.values()))
+
+        return x,y,f_alpha,alpha
+
+    def _fit(self,x,y,f_alpha,alpha):
+        
         def g(xaux,A,E):
             return A*np.exp(-E/(self.R*xaux))*f(alpha)
+        
+        Afit = []
+        Efit = []
 
         for f in f_alpha:
             try:   
                 popt, pcov = curve_fit(g, x, y)
-                AVals += [popt[0]]
-                EVals += [popt[1]]
+                Afit += [popt[0]]
+                Efit += [popt[1]]
             except RuntimeError:
                 pass
+        return Afit,Efit
 
-        LR = linregress(EVals,np.log(AVals))
+    def _regression(self,E,A):
+        LR = linregress(E,np.log(A))
         a = LR.slope
         b = LR.intercept
-        ln_A = (a*E) + b
-        return ln_A, a,b, np.array(AVals), np.array(EVals)
-
+        return a,b
 #---------------------------------------------------------------
-    def reconstruction(self,E, A, col, N=1):
+    def reconstruction(self,E, A, B):
+
         """ 
         Method to numericaly reconstruct the reaction model in its integral expression, $g(\alpha)$ 
         The reconstructions is computed as $g(\alpha)=\sum_{i}g(alpha_{i})$
 
-        Parameters:     E   :   Activation energy array.
-                        
-                        A   :   Pre-exponential factor array.
+        Parameters:     E :   numpy array containing the values of activation energy.
+                        A :   numpy array containing the values of Pre-exponential factor array.
+                        B :   Float. Value of the heating rate for the assossiated to the temperatures 
+                              to be used for the temperature integral
 
-                        col :   The index for the experimental heating rate, B, assossiated to the temperatures 
-                                to be used for the temperature integral
-
-                        N   :   Data blocks for the numerical integration (see J_time).
-
-
-        Returns:        g   :   Numerical values (not an analystical function) of the integral reaction model
-                                of the process under study
+        Returns:        g :   Numerical values (not an analytical function) of the integral reaction model
+                              of the process under study
         """
-        g = []
-        g_tmp = []
-        for i in range(len(E)-N):
-            J   = self.J_time(E[i],i,col,N=N,Beta=self.Beta[col])
-            g_i = A[i]*J
-            g_tmp.append(g_i)
-            g.append(np.sum(np.array(g_tmp)))
         
+
+        g = []
+        AiJsum = 0
+        Beta = list(self.Beta)
+        col = Beta.index(B)
+        for i in range(len(E)-1):
+            J   = self.J_time(E[i],i,col,Beta=self.Beta[col])
+            AiJsum += A[i]*J
+            g += [AiJsum]
         return np.array(g)
 
 #---------------------------------------------------------------
-    def t_isothermal(self, E, A, T0, col, g_a=None, alpha=None, isoconv=False, N=1):
+    def t_isothermal(self, E, A, T0, col, g_a=None, alpha=None, isoconv=False):
         """
         Method to compute isothermal, model-based or model-free, predictions. 
         Note that the ActivationEnergy.prediction( method also computes isothermal prediction which may be more accurate.
@@ -1962,9 +1861,6 @@ class ActivationEnergy(object):
                             isoconv :   Boolean. If True overrides the g_a options and the method computes the time required to reach a 
                                         given conversion value (from the 'alpha' array) based on the isoconversional principle.
 
-                            N       :   Data blocks for the numerical integration (see J_time).
-
-
         Returns:            t_p     :   Predicted time required to reach each the conversion values in the 'alpha' array. 
         """
         if type(g_a) == np.ndarray:
@@ -1982,13 +1878,11 @@ class ActivationEnergy(object):
             n = A0*np.exp(-E0/(self.R*T0))
             return m/n
 
-        else: pass
-        
-        if isoconv == True:
+        if isoconv:
             t_p = []
             t_tmp = []
-            for i in range(len(E)-N):
-                J   = self.J_time(E[i],i,col,N=N,Beta=self.Beta[col])
+            for i in range(len(E)-1):
+                J   = self.J_time(E[i],i,col,Beta=self.Beta[col])
                 t_i = J/(np.exp(-E[i]/(self.R*T0)))
                 t_tmp.append(t_i)
                 tp = np.sum(np.array(t_tmp))

@@ -12,7 +12,10 @@ def Trapezoid(funk, a, b, N,*args, Romberg=False):
     Ic = I0 +(h*Fc)
     
     if Romberg == False:
-        Nprime = int(N/2)
+        if N == 1:
+            Nprime = 1
+        else:
+            Nprime = int(N/2)
         hp = (b-a)/Nprime
         I0p = (hp/2)*(funk(a,args[0],args[1],args[2])+funk(b,args[0],args[1],args[2]))
         Fcp , x0p = 0 , a
