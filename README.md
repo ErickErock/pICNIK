@@ -9,7 +9,7 @@ The package has an object oriented interface with two classes:`DataExtraction` a
 - Vyazovkin (Vy)\
 - Advanced method of Vyazovkin (aVy)\
 
-Additionally, the `ActivationEnergy` class contains methods to make isothermal and non-isothermal predictions based on the isoconversional principle. Furthermore, the class has methods to reconstruct the reaction model in its integrl expression ($g(\alpha)$) given an activation energy ($E$) and an pre-exponential factor ($A$).
+Additionally, the `ActivationEnergy` class contains methods to make isothermal and non-isothermal predictions based on the isoconversional principle. Furthermore, the class has methods to compute the pre-exponential factor by means of the compensation effect and to reconstruct the reaction model in its integrl expression ($g(\alpha)$) given an activation energy ($E$) and an pre-exponential factor ($A$).
 
 The repository consist in the following directories:
 - picnik.py. Contains the package
@@ -39,7 +39,7 @@ Example:
     xtr = pnk.DataExtraction()
     Beta, T0 = xtr.read_files(files,encoding)
     xtr.Conversion(T0,Tf)
-    TDF,tDF,dDF,TaDF,taDF,daDF = xtr.Isoconversion(advanced=(bool))
+    IsoTables = xtr.Isoconversion(advanced=(bool))
     
     
 The DataFrames are also stored as attributes of the `xtr` object 
@@ -52,11 +52,8 @@ Example:
 
     ace = pnk.ActivationEnergy(Beta,
                                T0,
-                               TDF,
-                               dDF,
-                               TaDF,
-                               taDF)
-    E_Fr, E_OFW, E_KAS, E_Vy, E_aVy = ace.Fr(), ace.OFW(), ace.KAS(), ace.Vy(), ace.aVy()
+                               IsoTables)
+    E_Fr, E_OFW, E_KAS, E_Vy, E_aVy = ace.Fr(), ace.OFW(), ace.KAS(), ace.Vy((E_min,E_max)), ace.aVy((E_min,E_max))
     
 The constructor of this class needs six arguments, a list/array/tuple of Temperature rates, a list/array of initial temperatures and four DataFrames: one of temperature, one of convertsion rates and two "advanced" one of temperature and the other of time.
 
@@ -88,15 +85,15 @@ The `ActivationEnergy`class contains three methods for isothermal prediction, ea
 
  As it can be seen from the expressions above, the methods do not compute conversion as a funciton of time, but they compute the time required to reach a given conversion
 
-    tim_pred1 = ace.t_isothermal(E_aVy,np.exp(ln_A),Tiso,col=0,g_a=g_r,alpha=alpha)       # eq (1)
-    tim_pred2 = ace.t_isothermal(E_aVy,np.exp(ln_A),Tiso,col=0,isoconv=True)              # eq (2) 
-    ap,Tp,tp  = ace.prediction(E_aVy,B=0,isoT =575, alpha=0.999)                          # eq (3)
+    tim_pred1 = ace.t_isothermal(E_aVy,np.exp(ln_A),Tiso,col=0,g_a=g_r,alpha=alpha)        # eq (1)
+    tim_pred2 = ace.t_isothermal(E_aVy,np.exp(ln_A),Tiso,col=0,isoconv=True)               # eq (2) 
+    ap,Tp,tp  = ace.modelfree_prediction(E_aVy,B=0,isoT =575, alpha=0.999, bounds=(10,10)) # eq (3)
 
 #### Non-isothermal prediction
 
 The `ActivationEnergy.prediction(` method is so general that it can be used to simulate conversion under an arbitrary temperature program which may be a linear or user-defined as a python function.
 
-    ap2,Tp2,tp2 = ace.prediction(E_aVy,B=10,alpha=0.999)   # linear heating rate of 10 K/min    
+    ap2,Tp2,tp2 = ace.modelfree_prediction(E_aVy,B=10,alpha=0.999,bounds=(10,10))   # linear heating rate of 10 K/min    
 
 
     def Temp_program(t):
@@ -109,20 +106,15 @@ The `ActivationEnergy.prediction(` method is so general that it can be used to s
 	else:
 	    return 575
 
-    ap3,Tp3,tp3 = ace.prediction(E_aVy,B=0,T_func = Temp_program,alpha=0.999)
+    ap3,Tp3,tp3 = ace.modelfree_prediction(E_aVy,B=0,T_func = Temp_program,alpha=0.999,bounds=(10,10))
 
 ### Exporting results
 
 The `ActivationEnergy`class also has methods to export the results as .csv or .xlsx files:
 
-    ace.export_Ea(E_Fr, 
-                  E_OFW, 
-                  E_KAS, 
-                  E_Vy, 
-                  E_aVy,
-                  file_t="xlsx" )
+    ace.export_Ea()
 
-    export_prediction(time, Temp, alpha, name="prediction.csv")
+    ace.export_prediction(time, Temp, alpha, name="prediction.csv")
 
-    export_kinetic_triplet(E, ln_A, g_a, name="kinetic_triplet.csv")
+    ace.export_kinetic_triplet(E, ln_A, g_a, name="kinetic_triplet.csv")
 
