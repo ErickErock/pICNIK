@@ -17,7 +17,6 @@ import scipy.special     as     sp
 from scipy.stats import linregress, f                                   
 from scipy import integrate
 import matplotlib.pyplot as plt                                         # (4) matplotlib
-import derivative                                                       # (5) derivtive
 from picnik_integrator import picnik_integrator as integ                # (*) 
 from rxn_models import rxn_models                                       # (*)
 plt.rcParams.update({'font.size': 16})
@@ -33,8 +32,6 @@ For informationn about the depencies we refer the user to:
         Pauli Virtanen, Ralf Gommers, Travis E. Oliphant, Matt Haberland, Tyler Reddy, David Cournapeau, Evgeni Burovski, Pearu Peterson, Warren Weckesser, Jonathan Bright, Stéfan J. van der Walt, Matthew Brett, Joshua Wilson, K. Jarrod Millman, Nikolay Mayorov, Andrew R. J. Nelson, Eric Jones, Robert Kern, Eric Larson, CJ Carey, İlhan Polat, Yu Feng, Eric W. Moore, Jake VanderPlas, Denis Laxalde, Josef Perktold, Robert Cimrman, Ian Henriksen, E.A. Quintero, Charles R Harris, Anne M. Archibald, Antônio H. Ribeiro, Fabian Pedregosa, Paul van Mulbregt, and SciPy 1.0 Contributors. (2020) SciPy 1.0: Fundamental Algorithms for Scientific Computing in Python. Nature Methods, 17(3), 261-272.
     (4) https://matplotlib.org/
         J. D. Hunter, "Matplotlib: A 2D Graphics Environment", Computing in Science & Engineering, vol. 9, no. 3, pp. 90-95, 2007.
-    (5) https://derivative.readthedocs.io/en/latest/
-        Kaptanoglu et al., (2022). PySINDy: A comprehensive Python package for robust sparse system identification. Journal of Open Source Software, 7(69), 3994, https://doi.org/10.21105/joss.03994
     (*) This module come along with the picnik package. https://github.com/ErickErock/pICNIK/ 
 """
 #-----------------------------------------------------------------------------------------------------------
@@ -105,31 +102,19 @@ class DataExtraction:
             DF['%m'] = 100*(DF[DF.columns[2]]/DF[DF.columns[2]][0])
             #creates a column for the temperature in Kelvin
             DF['Temperature [K]'] = DF[DF.columns[1]] + 273.15      
-            #computes the differential thermogram with a Savitzki-Golay filter                                    
-            dwdt = derivative.dxdt(DF[DF.columns[2]].values,             
-                                   DF[DF.columns[0]].values,          
-                                   kind="savitzky_golay",
-                                   order=3,
-                                   left=0.5,
-                                   right=0.5)
+            #computes the differential thermogram with a Savitzki-Golay filter
+            dwdt = np.gradient(DF[DF.columns[2]].values,
+                               DF[DF.columns[0]].values)
             DF['dw/dt'] = DF[DF.columns[0]]
             DF['dw/dt'] = dwdt 
             #computes the differential thermogram with a Savitzki-Golay filter                                    
-            dwdt_p = derivative.dxdt(DF['%m'].values,             
-                                     DF[DF.columns[0]].values,          
-                                     kind="savitzky_golay",
-                                     order=3,
-                                     left=0.5,
-                                     right=0.5)
+            dwdt_p = np.gradient(DF['%m'].values,
+                                 DF[DF.columns[0]].values)
             DF['dw/dt [%/min]'] = DF[DF.columns[0]]
             DF['dw/dt [%/min]'] = dwdt_p 
             #computes the heating rate with a Savitzki-Golay filter
-            dTdt = derivative.dxdt(DF['Temperature [K]'].values,             
-                                   DF[DF.columns[0]].values,
-                                   kind="savitzky_golay", 
-                                   order=3,
-                                   left=0.5,
-                                   right=0.5)
+            dTdt = np.gradient(DF['Temperature [K]'].values,
+                               DF[DF.columns[0]].values)
             DF['dT/dt'] = DF[DF.columns[0]]
             DF['dT/dt'] = dTdt         
             
@@ -300,12 +285,8 @@ class DataExtraction:
                 #calculates the conversion                         
                 item['alpha'] = (item[item.columns[2]][0]-item[item.columns[2]])/(item[item.columns[2]][0]-item[item.columns[2]][item.shape[0]-1])
                 #computes the cnversion rate with a Savitzki-Golay filter
-                dadt = derivative.dxdt(item['alpha'].values,
-                                       item[item.columns[0]].values,
-                                       kind="savitzky_golay", 
-                                       order=3,
-                                       left=0.5,
-                                       right=0.5)
+                dadt = np.gradient(item['alpha'].values,
+                                   item[item.columns[0]].values)
                 item['da/dt'] = item[item.columns[0]]
                 item['da/dt'] = dadt
                 NDFl.append(item)
