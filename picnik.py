@@ -1,4 +1,4 @@
-#!/usr/bin/python3.7
+﻿#!/usr/bin/python3.7
 """
 This module has two classes: DataExtraction and ActivationEnergy. 
 DataExtraction reads csv files and creates pandas.DataFrames according to the isoconversional principle. 
@@ -8,22 +8,27 @@ Additionally, ActivationEnergy possesses methods to reconstruct de reaction mode
 methods to compute the compensation effect parameters (a,b) and the pre-exponential factor (A), as well as methods
 to make model-free or model-based predictions.
 """
+from typing import Any
+
 #Dependencies
 import numpy as np                                                      # (1) numpy
 import pandas as pd                                                     # (2) pandas
-from   scipy.interpolate import interp1d                                # (3) scipy
+from scipy.signal import savgol_filter
+from   scipy.interpolate import interp1d, make_smoothing_spline         # (3) scipy
 from   scipy.optimize    import minimize_scalar, fsolve, curve_fit      
 import scipy.special     as     sp
 from scipy.stats import linregress, f                                   
 from scipy import integrate
+import seaborn as sns                                        # colors for the plots
 import matplotlib.pyplot as plt                                         # (4) matplotlib
+plt.rcParams.update({'font.size': 16})
+
 from picnik_integrator import picnik_integrator as integ                # (*) 
 from rxn_models import rxn_models                                       # (*)
-plt.rcParams.update({'font.size': 16})
-import seaborn as sns                                        # colors for the plots
+
 
 """
-For informationn about the depencies we refer the user to:
+For information about the depencies we refer the user to:
     (1) https://numpy.org/doc/stable/
         Harris, C.R., Millman, K.J., van der Walt, S.J. et al. Array programming with NumPy. Nature 585, 357–362 (2020). DOI: 10.1038/s41586-020-2649-2. (Publisher link).
     (2) https://pandas.pydata.org/
@@ -51,7 +56,7 @@ class DataExtraction:
         self.DFlis          = []              #list of DataFrames containing data
         self.seg_DFlis      = []              #list of DataFrames segmented by temperature 
         self.Beta           = []              #list of heating rates
-        self.BetaCC         = []              #list of correlation coefficient for T vs t
+        self.BetaError      = []              #list of heating rate associated error
         self.files          = []              #list of files containing raw data
         self.da_dt          = []              #list of experimental conversion rates 
         self.T              = []              #list of experimental temperature in Kelvin
@@ -65,7 +70,7 @@ class DataExtraction:
         self.timeAdvIsoDF   = pd.DataFrame()  #Advanced isoconversional time DataFrame
         self.diffAdvIsoDF   = pd.DataFrame()  #Advanced isoconversional conversion rate DataFrame
 #-----------------------------------------------------------------------------------------------------------    
-    def read_files(self, flist, encoding='utf8',summary=True):
+    def read_files(self, flist, encoding='utf8', diff_smoother = 'SG', summary=True):
         """ 
         Reads each TGA file as a pandas DataFrame and calculates de heating rate. Each DataFrame is stored
         as an element of the attribute 'DFlis'. 
@@ -77,16 +82,22 @@ class DataExtraction:
                                   to 'utf8', 'utf16','latin1'. For more information on the python standar encoding:
                                   (https://docs.python.org/3/library/codecs.html#standard-encodings).
 
+                       diff_smoother: String. Method to smooth the numerical derivative: Available options are 'SG'
+                                      for a Savitzky-Golay filter with a window on i% the lenght of the array and
+                                      cubic polynomial. Or 'Sp3' for a B cubic spline with smoothing parameter lambda=0.5.
+
+                       summary: Bool. True for a graphic summary of the data.
+
         Returns:       Beta: Array of the fitted heating rates.
                        
                        T0: Array of experimental initial temperatures.
         """
     
         print("Files to be used: \n{}\n ".format(flist))
-        DFlis         =   self.DFlis
-        Beta          =   self.Beta
-        BetaCorrCoeff =   self.BetaCC
-        T0            =   self.T0            
+        DFlis    =   self.DFlis
+        Beta     =   self.Beta
+        BetaEr   =   self.BetaError
+        T0       =   self.T0
         print(f'Reading files and creating DataFrames...\n')
         for item in flist:
             #csv files can use a tab or a coma as separator.
@@ -102,38 +113,89 @@ class DataExtraction:
             DF['%m'] = 100*(DF[DF.columns[2]]/DF[DF.columns[2]][0])
             #creates a column for the temperature in Kelvin
             DF['Temperature [K]'] = DF[DF.columns[1]] + 273.15      
-            #computes the differential thermogram with a Savitzki-Golay filter
+            #Derivatives with smoothing filters
             dwdt = np.gradient(DF[DF.columns[2]].values,
+                       DF[DF.columns[0]].values,
+                               edge_order=2)
+            dwdt_p = np.gradient(DF['%m'].values,
+                                 DF[DF.columns[0]].values,
+                                 edge_order=2)
+            dTdt = np.gradient(DF['Temperature [K]'].values,
                                DF[DF.columns[0]].values)
+            if diff_smoother == 'SG':
+                try:
+                    dwdt_sm = savgol_filter(dwdt,
+                                            int(len(dwdt)*0.01),
+                                            3,
+                                            mode='nearest')
+                    dwdt_p_sm = savgol_filter(dwdt_p,
+                                              int(len(dwdt_p) * 0.01),
+                                              3,
+                                              mode='nearest')
+                    dTdt_sm = savgol_filter(dTdt,
+                                            int(len(dTdt) * 0.01),
+                                            3,
+                                            mode='nearest')
+                except ValueError:
+                    dwdt_sm = savgol_filter(dwdt,
+                                            int(len(dwdt) * 0.1),
+                                            3,
+                                            mode='nearest')
+                    dwdt_p_sm = savgol_filter(dwdt_p,
+                                              int(len(dwdt_p) * 0.1),
+                                              3,
+                                              mode='nearest')
+                    dTdt_sm = savgol_filter(dTdt,
+                                            int(len(dTdt) * 0.1),
+                                            3,
+                                            mode='nearest')
+            elif diff_smoother == 'Sp3':
+                spl_dwdt = make_smoothing_spline(DF[DF.columns[0]].values,
+                                            dwdt,
+                                            lam=0.5)
+                dwdt_sm = spl_dwdt(DF[DF.columns[0]])
+
+                spl_dwdt_p = make_smoothing_spline(DF[DF.columns[0]].values,
+                                            dwdt_p,
+                                            lam=0.5)
+                dwdt_p_sm = spl_dwdt_p(DF[DF.columns[0]])
+
+                spl_dTdt = make_smoothing_spline(DF[DF.columns[0]].values,
+                                            dTdt,
+                                            lam=0.5)
+                dTdt_sm = spl_dTdt(DF[DF.columns[0]])
+            else:
+                raise ValueError("Smoothing method not available. Type 'SG' for a Savitxky-Golay filter or 'Sp3' for a B-cubic spline.")
             DF['dw/dt'] = DF[DF.columns[0]]
-            DF['dw/dt'] = dwdt 
+            DF['dw/dt'] = dwdt_sm
             #computes the differential thermogram with a Savitzki-Golay filter                                    
             dwdt_p = np.gradient(DF['%m'].values,
                                  DF[DF.columns[0]].values)
             DF['dw/dt [%/min]'] = DF[DF.columns[0]]
-            DF['dw/dt [%/min]'] = dwdt_p 
+            DF['dw/dt [%/min]'] = dwdt_p_sm
             #computes the heating rate with a Savitzki-Golay filter
-            dTdt = np.gradient(DF['Temperature [K]'].values,
-                               DF[DF.columns[0]].values)
+
+
             DF['dT/dt'] = DF[DF.columns[0]]
-            DF['dT/dt'] = dTdt         
+            DF['dT/dt'] = dTdt_sm
             
             #computes the heating rate
             LR = linregress(DF[DF.columns[0]],                            
                             DF[DF.columns[1]])
 
-            BetaCorrCoeff.append(LR.rvalue)
+            BetaEr.append(LR.intercept_stderr)
             Beta.append(LR.slope)
             DFlis.append(DF)
 
-        self.DFlis  = DFlis                     #List of the DataFrames constructed
-        self.Beta   = np.array(Beta)            #Array of heating rates in ascendent order
-        self.BetaCC = np.array(BetaCorrCoeff)   #Array of correlation coefficients for the heating rates
-        self.T0     = np.array(T0)              #Array of experimental initial temperatures
+        self.DFlis     = DFlis                     #List of the DataFrames constructed
+        self.Beta      = np.array(Beta)            #Array of heating rates in ascendent order
+        self.BetaError = np.array(BetaEr)   #Array of correlation coefficients for the heating rates
+        self.T0        = np.array(T0)              #Array of experimental initial temperatures
 
         print(f'The computed heating rates are:\n')
-        for i in range(len(Beta)):
-            print(f'{Beta[i]:.2f} K/min')
+        for b in range(len(Beta)):
+            print(f'\n{Beta[b]:6.3f} +/- {BetaEr[b]:.3f} K/min\n')
+
         if summary == True:
             #TG visualization
             fig, axs = plt.subplots(2 , 3,figsize=(18,8))
@@ -144,7 +206,7 @@ class DataExtraction:
                 axs[0][0].plot(DFlis[i][DFlis[0].columns[0]],
                                DFlis[i]['%m'],
                                lw=3,
-                               label=r'$\beta$='+str(np.round(Beta[i],decimals=1))+' K/min')
+                               label=rf'$\beta$={Beta[i]:.1f} K/min')
                 axs[0][0].legend(fontsize=14)
                 axs[0][0].set_xlabel('time [min]')
                 axs[0][0].set_ylabel('mass [%]')
@@ -153,7 +215,7 @@ class DataExtraction:
                 axs[0][1].plot(DFlis[i][DFlis[0].columns[0]],
                                DFlis[i]['dw/dt [%/min]'],
                                lw=3,
-                               label=r'$\beta$='+str(np.round(Beta[i],decimals=1))+' K/min')
+                               label=rf'$\beta$={Beta[i]:.1f} K/min')
                 axs[0][1].legend(fontsize=14)
                 axs[0][1].set_xlabel('time [min]')
                 axs[0][1].set_ylabel('dw/dt [%/min]')
@@ -162,7 +224,7 @@ class DataExtraction:
                 axs[0][2].plot(DFlis[i][DFlis[0].columns[0]],
                                DFlis[i]['dT/dt'],
                                lw=3,
-                               label=r'$\beta$='+str(np.round(Beta[i],decimals=1))+' K/min')
+                               label=rf'$\beta$={Beta[i]:.1f} K/min')
                 axs[0][2].legend(fontsize=14)
                 axs[0][2].set_xlabel('time [min]')
                 axs[0][2].set_ylabel('dT/dt [K/min]')
@@ -171,7 +233,7 @@ class DataExtraction:
                 axs[1][0].plot(DFlis[i]['Temperature [K]'],
                                DFlis[i]['%m'],
                                lw=3,
-                               label=r'$\beta$='+str(np.round(Beta[i],decimals=1))+' K/min')
+                               label=rf'$\beta$={Beta[i]:.1f} K/min')
                 axs[1][0].legend(fontsize=14)
                 axs[1][0].set_xlabel('Temperature [K]')
                 axs[1][0].set_ylabel('mass [%]')
@@ -180,7 +242,7 @@ class DataExtraction:
                 axs[1][1].plot(DFlis[i]['Temperature [K]'],
                                DFlis[i]['dw/dt [%/min]'],
                                lw=3,
-                               label=r'$\beta$='+str(np.round(Beta[i],decimals=1))+' K/min')
+                               label=rf'$\beta$={Beta[i]:.1f} K/min')
                 axs[1][1].legend(fontsize=14)
                 axs[1][1].set_xlabel('Temperature [K]')
                 axs[1][1].set_ylabel('dw/dt [%/min]')
@@ -189,7 +251,7 @@ class DataExtraction:
                 axs[1][2].plot(DFlis[i]['Temperature [K]'],
                                DFlis[i]['dT/dt'],
                                lw=3,
-                               label=r'$\beta$='+str(np.round(Beta[i],decimals=1))+' K/min')
+                               label=rf'$\beta$={Beta[i]:.1f} K/min')
                 axs[1][2].legend(fontsize=14)
                 axs[1][2].set_xlabel('Temperature [K]')
                 axs[1][2].set_ylabel('dT/dt [K/min]')
@@ -260,36 +322,60 @@ class DataExtraction:
         plt.legend()
         plt.show()
 #-----------------------------------------------------------------------------------------------------------
-    def Conversion(self,T0,Tf):
+    # noinspection PyUnboundLocalVariable
+    def Conversion(self,T0, Tf, diff_smoother ='SG'):
         """
         Calculates the conversion values for a given temperature range. 
         Not all experimental points are suitable for the isoconversional 
         analysis, so a temperature analysis range must be selected based 
         on the thermal profile of the sample.
         
-        Parameters:    T0: Initial temperature in Kelvin of the interval where the process to study is.
+        Parameters:    T0: List of initial temperatures in Kelvin of the interval where the process to study is.
                          
-                       Tf: Final temperature in Kelvin of the interval where the process to study is.
+                       Tf: List of final temperatures in Kelvin of the interval where the process to study is.
+
+                       diff_smoother: String. Method to smooth the numerical derivative: Available options are 'SG'
+                                      for a Savitzky-Golay filter with a window on i% the lenght of the array and
+                                      cubic polynomial. Or 'Sp3' for a B cubic spline with smoothing parameter lambda=0.5.
 
         Returns:       A plot of the temperature range to be used in the analysis.
                        
         """
         DFlist = self.DFlis
-        NDFl = self.seg_DFlis
-        print('The temperature range was set to ({0:0.1f},{1:0.1f}) K'.format((T0),(Tf)))
+        NDFl = []
         print(f'Computing conversion values...')
-        for item in DFlist:
-                #filters the DataFrames based on the temperature limits 
-                item = item.loc[(item['Temperature [K]'] > T0) & (item['Temperature [K]'] < Tf)]     
-                item = item.reset_index(drop=True)
-                #calculates the conversion                         
-                item['alpha'] = (item[item.columns[2]][0]-item[item.columns[2]])/(item[item.columns[2]][0]-item[item.columns[2]][item.shape[0]-1])
-                #computes the cnversion rate with a Savitzki-Golay filter
-                dadt = np.gradient(item['alpha'].values,
-                                   item[item.columns[0]].values)
-                item['da/dt'] = item[item.columns[0]]
-                item['da/dt'] = dadt
-                NDFl.append(item)
+        for i in range(len(DFlist)):
+            #filters the DataFrames based on the temperature limits
+            item = DFlist[i]
+            item = item.loc[(item['Temperature [K]'] > T0[i]) & (item['Temperature [K]'] < Tf[i])]
+            item = item.reset_index(drop=True)
+            #calculates the conversion
+            item['alpha'] = (item[item.columns[2]][0]-item[item.columns[2]])/(item[item.columns[2]][0]-item[item.columns[2]][item.shape[0]-1])
+            #computes the cnversion rate with a Savitzki-Golay filter
+            dadt = np.gradient(item['alpha'].values,
+                               item[item.columns[0]].values)
+            if diff_smoother == 'SG':
+                try:
+                    dadt_sm = savgol_filter(dadt,
+                                            int(len(dadt) * 0.01),
+                                            3,
+                                            mode='nearest')
+                except ValueError:
+                    dadt_sm = savgol_filter(dadt,
+                                            int(len(dadt) * 0.1),
+                                            3,
+                                            mode='nearest')
+            elif diff_smoother == 'Sp3':
+                spl = make_smoothing_spline(item[item.columns[0]].values,
+                                            dadt,
+                                            lam=0.5)
+                dadt_sm = spl(item[item.columns[0]].values)
+            item['da/dt'] = item[item.columns[0]]
+            item['da/dt'] = dadt_sm
+
+            item = item.loc[(item['alpha'] > 0.002) & (item['alpha'] < 0.998)]
+            NDFl.append(item)
+
         alpha = self.alpha
         T = self.T
         t = self.t
@@ -331,24 +417,22 @@ class DataExtraction:
 
         plt.style.use('tableau-colorblind10')
 
-        markers = ["o","v","x","1","s","^","p","<","2",">"]
+        markers = ["o","v","s","*","x","^","p","<","2",">"]
         #Plot of the thermograms showing the anaysis range.
         fig, ax1 = plt.subplots(figsize=(12,9))
 
         for i in range(len(NDFl)):
-            ax1.plot(NDFl[i]['Temperature [K]'].values[::40],           #Temperature in Kelvin
-                     NDFl[i]['alpha'].values[::40],                        #mass loss percentage
+            ax1.plot(NDFl[i]['Temperature [K]'].values[::2],           #Temperature in Kelvin
+                     NDFl[i]['alpha'].values[::2],                        #mass loss percentage
                      marker = markers[i],
                      markersize=10,
                      linestyle = '--',
-                     linewidth=4,
-                     label=r'$\beta=$'+str(np.round(self.Beta[i],decimals=2))+' K/min',
+                     linewidth=4.20,
+                     label=rf'$\beta=$ {self.Beta[i]:.2f} K/min',
                      alpha=0.75)
-        ax1.axvline(x=(T0),alpha=0.8,color='red',ls='--',lw=2.3)         #temperature lower limit
-        ax1.axvline(x=(Tf),alpha=0.8,color='red',ls='--',lw=2.3)         #temperature upper limit
         ax1.set_ylabel(r'conversion ($\alpha$)')
         ax1.set_xlabel('Temperature [K]')
-        ax1.set_xlim((T0-20),(Tf+20)) 
+        ax1.set_xlim((T0[0]-20),(Tf[-1]+20))
         ax1.legend(frameon=True)
         ax1.grid(True)
 
@@ -385,21 +469,21 @@ class DataExtraction:
                                   kind='cubic', 
                                   bounds_error=False, 
                                   fill_value="extrapolate")
-            TempAdvIsoDF['HR '+str(np.round(Beta[i], decimals = 1)) + ' K/min'] = np.round(inter_func(adv_alps), decimals = 4)
+            TempAdvIsoDF[rf'$\beta=$ {Beta[i]:.2f} K/min'] = np.round(inter_func(adv_alps), decimals = 4)
 
             inter_func2 = interp1d(alpha[i], 
                                    t[i],
                                    kind='cubic', 
                                    bounds_error=False, 
                                    fill_value="extrapolate")
-            timeAdvIsoDF['HR '+str(np.round(Beta[i], decimals = 1)) + ' K/min'] = np.round(inter_func2(adv_alps), decimals = 4)
+            timeAdvIsoDF[rf'$\beta=$ {Beta[i]:.2f} K/min'] = np.round(inter_func2(adv_alps), decimals = 4)
             
             inter_func3 = interp1d(alpha[i], 
                                    da_dt[i],
                                    kind='cubic', 
                                    bounds_error=False, 
                                    fill_value="extrapolate")
-            diffAdvIsoDF['HR '+str(np.round(Beta[i], decimals = 1)) + ' K/min'] = np.round(inter_func3(adv_alps), decimals = 4)
+            diffAdvIsoDF[rf'$\beta=$ {Beta[i]:.2f} K/min'] = np.round(inter_func3(adv_alps), decimals = 4)
             
             timeAdvIsoDF.index = adv_alps
             TempAdvIsoDF.index = adv_alps
@@ -425,7 +509,7 @@ class DataExtraction:
         """
         return self.Beta
 #-----------------------------------------------------------------------------------------------------------
-    def get_betaCC(self):
+    def get_beta_error(self):
         """
         Getter for the correlation coefficient of the heating rates.
 
@@ -435,7 +519,7 @@ class DataExtraction:
                       obtained from a linear regression, sorted in correspondance with the 
                       heating rate list (attribute Beta).
         """
-        return self.BetaCC
+        return self.BetaError
 #-----------------------------------------------------------------------------------------------------------       
     def get_DFlis(self):
         """
@@ -1237,6 +1321,7 @@ class ActivationEnergy:
         timeAdvIsoDF = self.timeAdvIsoDF
         Beta         = self.Beta
         j            = row
+        n = len(Beta)*(len(Beta)-1)
         #Array from a comprehension list of factors of \Omega(Ea)
         #The variable of integration depends on the parameter var
         if var == 'Temperature':
@@ -1257,8 +1342,9 @@ class ActivationEnergy:
                                         i) 
                             for i in range(len(timeAdvIsoDF.columns))])
             #Double sum
-            omega_i = np.array([I_B[k]*((np.sum(1/(I_B)))-(1/I_B[k])) for k in range(len(Beta))])
-            O = np.array(np.sum((omega_i)))
+            #omega_i = np.array([I_B[k]*((np.sum(1/(I_B)))-(1/I_B[k])) for k in range(len(Beta))])
+            omega_i = np.array([((I_B[k] / I_B) -1)**2 for k in range(len(Beta))])
+            O = np.array(np.sum((omega_i)))/n
             return O        
 #-----------------------------------------------------------------------------------------------------------
     def visualize_advomega(self,row,var='time',bounds=(1,300),n=1000):
@@ -1335,9 +1421,10 @@ class ActivationEnergy:
             #time integrals into a list comprehension        
             J = np.array([self.J_time(E, row_i, i) for i in range(len(self.Beta))])     
             #Each value to be compared with one (s-1) to compute the variance
-            s = np.array([J[i]/J for i in range(len(J))])
-            
-            return np.sum((s-1)**2)/n
+            #s = np.array([J[i]/J for i in range(len(J))])
+            #return np.sum((s-1)**2
+            s = np.array([((J[i] / J)-1)**2 for i in range(len(J))])
+            return np.sum(s)/n
             
         elif var == 'Temperature':
             #lower limit
@@ -1346,17 +1433,16 @@ class ActivationEnergy:
             sup = self.TempAdvIsoDF.index.values[row_i+1]
         
             #temperature integrals into a list comprehension 
-            J = [self.J_Temp(E, 
-                            self.TempAdvIsoDF[self.TempAdvIsoDF.columns[i]][inf], 
-                            self.TempAdvIsoDF[self.TempAdvIsoDF.columns[i]][sup]) 
-                 for i in range(len(self.Beta))]
+            J: list[float | Any] = [self.J_Temp(E,
+                                                self.TempAdvIsoDF[self.TempAdvIsoDF.columns[i]][inf],
+                                                self.TempAdvIsoDF[self.TempAdvIsoDF.columns[i]][sup])
+                                     for i in range(len(self.Beta))]
             #Each value to be compared with one (s-1) to compute the variance
-            s = np.array([J[i]/J for i in range(len(J))])
-            
+            s = np.array([J[i]/np.array(J) for i in range(len(J))])
             return np.sum((s-1)**2)/n
 
         else:
-            raise ValueError('variable not valid')
+            raise ValueError('Variable not valid.')
 
 #-----------------------------------------------------------------------------------------------------------        
     def psi_aVy(self, E, row_i, var = 'time', p =0.95):
@@ -1388,7 +1474,7 @@ class ActivationEnergy:
                        Analytical chemistry, 72(14), 3171-3175.
         """         
         #F values for a p% confidence interval for (n-1) and (n-1) degreees of freedom
-        n1, n2 = len(self.Beta)*(len(self.Beta)-1)-1, len(self.Beta)*(len(self.Beta)-1)-1
+        n1, n2 = len(self.Beta)*(len(self.Beta)-1) - 1, len(self.Beta)*(len(self.Beta)-1) - 1
         F = f.ppf(p,n1,n2)
             
         #Psi evaluation interval
@@ -1438,7 +1524,7 @@ class ActivationEnergy:
         return error_aVy  
 
 #-----------------------------------------------------------------------------------------------------------
-    def aVy(self,bounds, var='time', p= 0.95, strat = 'min'):
+    def aVy(self,bounds, var='time', p= 0.95):
         """
         Method to compute the Activation Energy based on the Advanced Vyazovkin treatment.
         \Omega(E_{\alpha})= min[ sum_{i}^{n}\sum_{j}^{n-1}[J(E,T_{i})]/[J(E,T_{j})] ]
@@ -1465,42 +1551,14 @@ class ActivationEnergy:
                       Chemistry 22 (2) (2001) 178–183.
         """
 
-        a_aVy        = []     
-        T_Vy         = []
         timeAdvIsoDF = self.timeAdvIsoDF
-        Beta         = self.Beta
-        T_prom       = self.TempAdvIsoDF.mean(axis=1).values 
+        T_prom       = self.TempAdvIsoDF.mean(axis=1).values
         print(f'Advanced Vyazovkin method: Computing activation energies...')
         
-        if strat == 'min':
-            E_aVy   = [minimize_scalar(self.adv_omega,bounds=bounds,args=(m,var), method = 'bounded').x 
-                        for m in range(len(timeAdvIsoDF.index)-1)]
-            error   = self.error_aVy(E_aVy, var=var, p=p)
-
-        elif strat == 'quad_fit':
-            E_aVy = []
-            error = []
-            def quadratic(x,*args):
-                A = args[0]
-                B = args[1]
-                C = args[2]
-                return A + (B*((x-C)**2))
-
-            E = np.linspace(bounds[0], bounds[1], 500)
-            for r in range(len(timeAdvIsoDF.index)-1):
-                O = np.array([float(self.adv_omega(E[i],r,var)) for i in range(len(E))]) 
-                popt, pcov = curve_fit(quadratic, E, O, p0=[10,1,100],bounds=bounds,xtol=1.49012e-10)
-                
-                a_aVy.append(timeAdvIsoDF.index.values[m]) 
-                E_min = popt[2]
-                E_aVy.append(E_min)
-
-                perr = np.sqrt(np.diag(pcov))
-                m = perr[1]/(2*popt[0])
-                n = perr[0]*(popt[1]/(2*(popt[0]**2)))
-                E_err= np.sqrt(m**2 + n**2)        
-                error.append(E_err)
-            error = np.array(error)
+        E_aVy   = [minimize_scalar(self.adv_omega,bounds=bounds,args=(m,var), method = 'bounded').x
+                    for m in range(len(timeAdvIsoDF.index)-1)]
+        error   = self.error_aVy(E_aVy, var=var, p=p)
+        error = np.array(error)
 
         E_aVy   = np.array(E_aVy)
         a_aVy = timeAdvIsoDF.index.values[1::]
@@ -1552,7 +1610,7 @@ class ActivationEnergy:
         plt.xlabel(r'$\alpha$')
         plt.ylabel(r'$E_{\alpha}$')
         plt.legend()
-        plt.grid(1)
+        plt.grid(True)
         plt.show()
         if saveplot:
             plt.savefig(name)
@@ -1700,7 +1758,7 @@ class ActivationEnergy:
 
 #----------------------------------------------------------------
 
-    def compensation_effect(self, E, B, f_alpha = None):
+    def compensation_effect(self, col, E=None, errorE=None, f_alpha=None, error_m='mse_NL'):
         """
         Function to compute the pre-exponential factor based on the compensation effect
         which states a linear relation between E and ln(A): ln(A) = a + bE.
@@ -1709,59 +1767,137 @@ class ActivationEnergy:
                       B  : float. Value of the heating rate for the dataframe index.
                       f_alpha  : List of extra functions of models to iterate over.
                                  By default the function will only iterate over all the functions
-                                 on the "rxn_models.py" file 
-        Returns:      ln_A: numpy array containing the values of the logaritmic preexponential factor 
+                                 on the "rxn_models.py" file
+        Returns:      ln_A: numpy array containing the values of the logaritmic preexponential factor
                       a  : the slope of the relationship between E and A
                       b  : the intercept of the relationship between E and A
-                      Afit: the fitted values of the preexponential factor 
-                      Efit: the fitted values of the activation energy 
+                      Afit: the fitted values of the preexponential factor
+                      Efit: the fitted values of the activation energy
         """
-        
-        x,y,f_alpha,alpha = self._load_data(B,f_alpha)
-        Afit,Efit = self._fit(x,y,f_alpha,alpha)
-        a,b = self._regression(Efit,Afit)
-        ln_A = (a*E) + b
-        return ln_A, a,b, np.array(Afit), np.array(Efit)
+        Tdf = self.TempAdvIsoDF
+        Ddf = self.diffAdvIsoDF
+        x = Tdf[Tdf.columns[col]].values
+        y = Ddf[Ddf.columns[col]].values
+        alpha = Tdf.index.values
 
-    def _load_data(self,B,f_alpha):
-        Beta = list(self.Beta)
-        index = Beta.index(B)
-        column = self.TempAdvIsoDF.columns[index]
-        TempIsoDF = self.TempAdvIsoDF.loc[(self.TempAdvIsoDF.index > 0.005) & (self.TempAdvIsoDF.index < 0.995)]
-        diffIsoDF = self.diffAdvIsoDF.loc[(self.diffAdvIsoDF.index > 0.005) & (self.diffAdvIsoDF.index < 0.995)]
-        x = TempIsoDF[column].values
-        y = diffIsoDF[column].values
-        alpha = TempIsoDF.index.values
+        def fit(x, y, f_alpha, alpha, er_m=error_m):
+
+            def filter_fit(funcs=f_alpha, rsq_l=0.95, rsq_u=1.05, mse_lim=0.1):
+
+                def g(xaux, A, E):
+                    return A * np.exp(-E / (self.R * xaux)) * f(alpha)
+
+                Afit = []
+                Efit = []
+                r_sqr = []
+                model = []
+                for f in funcs:
+                    try:
+                        # noinspection PyTupleAssignmentBalance
+                        popt, pcov = curve_fit(g, x, y)
+                    except RuntimeError:
+                        pass
+                    residuals = y - g(x, *popt)
+                    ss_res = np.sum(residuals ** 2)
+                    ss_tot = np.sum((y - np.mean(y)) ** 2)
+                    r_squared = 1 - (ss_res / ss_tot)
+                    if er_m == 'r_NL':
+                        if r_squared > rsq_l and r_squared < rsq_u and popt[0] > 0:
+                            r_sqr += [r_squared]
+                            Afit += [popt[0]]
+                            Efit += [popt[1]]
+                            model += [f]
+                        else:
+                            pass
+                    elif er_m == 'mse_NL':
+                        if ss_res < mse_lim and popt[0] > 0:
+                            r_sqr += [ss_res]
+                            Afit += [popt[0]]
+                            Efit += [popt[1]]
+                            model += [f]
+                        else:
+                            pass
+                    elif er_m == 'r_Lin':
+                        dep = np.log((1 / f(alpha)) * y)
+                        ind = 1 / x
+                        df = pd.DataFrame({'x': ind,
+                                           'y': dep})
+                        df.replace([np.inf, -np.inf], np.nan, inplace=True)
+                        df = df.dropna()
+                        lr = linregress(df['x'].values, df['y'].values)
+                        pen = lr.slope
+                        ord = lr.intercept
+                        # print( lr.rvalue**2 )
+                        if (lr.rvalue ** 2) > rsq_l:
+                            Afit += [np.exp(ord)]
+                            Efit += [-self.R * pen]
+                            model += [f]
+                            r_sqr += [lr.rvalue ** 2]
+                        else:
+                            pass
+
+                return np.array(Afit), np.array(Efit), np.array(r_sqr), model
+
+            fr_l  = np.array([0.9999, 0.999, 0.99, 0.95, 0.85])
+            fr_u  = 2 - fr_l
+            f_mse = (0.0001, 0.001, 0.005, 0.01, 0.05)
+
+            k = 0
+            while k < len(fr_l):
+                Afit_t, Efit_t, r_sq_t, mod_t = filter_fit(f_alpha,
+                                                           rsq_l=fr_l[k],
+                                                           rsq_u=fr_u[k],
+                                                           mse_lim=f_mse[k])
+                if Efit_t.size == 0 or Afit_t.size == 0:
+                    k += 1
+                    if k == len(fr_l):
+                        print('No model managed to pass the accuracy filters.')
+                    else:
+                        if er_m == 'r_NL' or er_m == 'r_Lin':
+                            print(
+                                rf'Accuracy not met with precision of $r^{2}$ = {fr_l[k - 1]}. Lowering precision to $r^{2}$ = {fr_l[k]}')
+                        else:
+                            print(
+                                rf'Accuracy not met with precision of mse = {f_mse[k - 1]}. Lowering precision to mse = {f_mse[k]}')
+                else:
+                    break
+
+            return Afit_t, Efit_t, r_sq_t, mod_t
+
+        def regression(E, A):
+            LR = linregress(E, np.log(A))
+            a = LR.slope
+            b = LR.intercept
+            error_a = LR.stderr
+            error_b = LR.intercept_stderr
+            return a, error_a, b, error_b
+
+        if E is None:
+            print('Activation energy values are necessary to compute pre-exponential factor values')
+            return None
+        else:
+            pass
+        if errorE is None:
+            print('Activation energy errors are necessary to compute pre-exponential factor errors')
+            return None
+        else:
+            pass
         if f_alpha is None:
-            f_alpha = []
+            f_a = []
+        f_a += filter(callable, list(rxn_models.__dict__.values()))
+        Afit, Efit, r_sq, mod = fit(x, y, f_a, alpha, er_m=error_m)
+        self.accepted_models = mod
+        if Efit.size == 0 or Afit.size == 0:
+            print('Compensation effect could not be computed for this data.')
+            return None
+        else:
+            a, errora, b, errorb = regression(Efit, Afit)
+            ln_A = (a * E) + b
+            errorlnA = np.sqrt((errora ** 2) + ((E * errorb) ** 2) + ((b * errorE) ** 2))
 
-        f_alpha += filter(callable, list(rxn_models.__dict__.values()))
+            return ln_A, errorlnA, a, errora, b, errorb, np.array(Afit), np.array(Efit), r_sq, mod
 
-        return x,y,f_alpha,alpha
-
-    def _fit(self,x,y,f_alpha,alpha):
-        
-        def g(xaux,A,E):
-            return A*np.exp(-E/(self.R*xaux))*f(alpha)
-        
-        Afit = []
-        Efit = []
-
-        for f in f_alpha:
-            try:   
-                popt, pcov = curve_fit(g, x, y)
-                Afit += [popt[0]]
-                Efit += [popt[1]]
-            except RuntimeError:
-                pass
-        return Afit,Efit
-
-    def _regression(self,E,A):
-        LR = linregress(E,np.log(A))
-        a = LR.slope
-        b = LR.intercept
-        return a,b
-#---------------------------------------------------------------
+    #---------------------------------------------------------------
     def reconstruction(self,E, A, B):
 
         """ 
@@ -1777,7 +1913,7 @@ class ActivationEnergy:
                               of the process under study
         """
         
-
+        models = self.accepted_models
         g = []
         AiJsum = 0
         Beta = list(self.Beta)
@@ -1787,38 +1923,26 @@ class ActivationEnergy:
             AiJsum += A[i]*J
             g += [AiJsum]
 
-        color_A = sns.color_palette("rocket",3)
-        color_P = sns.color_palette("crest",4)
-        color_D = sns.color_palette("Oranges",5)
-        alpha   = self.timeAdvIsoDF.index.values[1::]
-        plt.plot(alpha,rxn_models.A2(alpha,integral=True),ls='--',color=color_A[0])#,label='A2',alpha=0.7)
-        plt.plot(alpha,rxn_models.A3(alpha,integral=True),ls='--',color=color_A[1])#,label='A3',alpha=0.7)
-        plt.plot(alpha,rxn_models.A4(alpha,integral=True),ls='--',color=color_A[2])#,label='A4',alpha=0.7)
-        plt.plot(alpha,rxn_models.P2(alpha,integral=True),ls='-.',color=color_P[0],lw=2)#,label='P2',alpha=0.7)
-        plt.plot(alpha,rxn_models.P2_3(alpha,integral=True),ls='-.',color=color_P[1],lw=2)#,label='P2/3',alpha=0.7)
-        plt.plot(alpha,rxn_models.P3(alpha,integral=True),ls='-.',color=color_P[2],lw=2)#,label='P3',alpha=0.7)
-        plt.plot(alpha,rxn_models.P4(alpha,integral=True),ls='-.',color=color_P[3],lw=2)#,label='P4',alpha=0.7)
-        plt.plot(alpha,rxn_models.D1(alpha,integral=True),ls=':',color=color_D[2],lw=2)#,label='D1',alpha=0.7)
-        plt.plot(alpha,rxn_models.D2(alpha,integral=True),ls='-',color=color_D[3],lw=2)#,label='D2',alpha=0.7)
-        plt.plot(alpha,rxn_models.D3(alpha,integral=True),ls=':',color=color_D[4],lw=2)#,label='D3',alpha=0.7)
-        plt.plot(alpha,rxn_models.F1(alpha,integral=True),color='teal',lw=2)#,label='F1',alpha=0.7)
+        #color = sns.color_palette("rocket",len(models))
+        #color = sns.color_palette("crest",len(models))
+        color = sns.color_palette("Spectral",len(models))
+        #color = sns.color_palette("cubehelix", len(models))
+        #color = sns.color_palette("icefire", len(models))
 
-        plt.text(0.725,1.375,'F1',fontsize=11,alpha=0.95)
-        plt.text(0.790,1.375,'A2',fontsize=11,alpha=0.95)
-        plt.text(0.880,1.375,'A3',fontsize=11,alpha=0.95)
-        plt.text(0.990,1.375,'A4',fontsize=11,alpha=0.95)
-        plt.text(0.400,0.340,'P2/3',fontsize=11,alpha=0.95)
-        plt.text(0.030,0.280,'P2',fontsize=11,alpha=0.95)
-        plt.text(0.035,0.415,'P3',fontsize=11,alpha=0.95)
-        plt.text(0.030,0.540,'P4',fontsize=11,alpha=0.95)
-        plt.text(0.570,0.380,'D1',fontsize=11,alpha=0.95)
-        plt.text(0.858,0.682,'D2',fontsize=11,alpha=0.95)
-        plt.text(0.834,0.145,'D3',fontsize=11,alpha=0.95)
+        alpha   = self.timeAdvIsoDF.index.values[1::]
+
+        line_wid = 4.20
+        font_siz = 14
+        for m in range(len(models)):
+            sp1 = str(models[m]).split('at')[0]
+            sp2 = sp1.split('<')[1]
+            plt.plot(alpha, models[m](alpha, integral=True),
+                     ls='--', color=color[m], lw=line_wid, label=sp2)
 
         try:
-            plt.plot(alpha,g,'*-',color='#4B6696',label='g_r',alpha=0.5)
+            plt.plot(alpha,g,'*-',color='#6963DB',lw=4.20, ms= 8, label='g_r',alpha=0.5)
         except ValueError:    
-            plt.plot(alpha[1::],g,'*-',color='#4B6696',label='g_r',alpha=0.5)
+            plt.plot(alpha[1::],g,'*-',color='#6963DB',lw=4.20, ms= 8, label='g_r',alpha=0.5)
         plt.ylim(0,2)
         plt.xlim(0,1)
         plt.xlabel(r'$\alpha$')
@@ -1907,7 +2031,7 @@ class ActivationEnergy:
                                'conversion':alpha})
         predDF.to_csv(name,index=False)
 #---------------------------------------------------------------
-    def export_kinetic_triplet(self, E, ln_A, g_a, name="kinetic_triplet.csv" ):
+    def export_kinetic_triplet(self, alpha, E, ln_A, g_a, name="kinetic_triplet.csv" ):
         """
         Method to export the kinetic prediction.
 
@@ -1921,9 +2045,10 @@ class ActivationEnergy:
 
         Returns:    None. A file will be created according to the working path or path specified in `name`.
         """
-        kinDF = pd.DataFrame({'E':E,
-                               'ln_A':ln_A,
-                               'g(alpha)':g_a})
+        kinDF = pd.DataFrame({r'$\alpha$':alpha,
+                              'E':E,
+                              'ln_A':ln_A,
+                              'g(alpha)':g_a})
         kinDF.to_csv(name,index=False)
 
 
