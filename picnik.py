@@ -376,10 +376,10 @@ class DataExtraction:
             item = item.loc[(item['alpha'] > 0.002) & (item['alpha'] < 0.998)]
             NDFl.append(item)
 
-        alpha = self.alpha
-        T = self.T
-        t = self.t
-        da_dt = self.da_dt
+        alpha = []
+        T = []
+        t = []
+        da_dt = []
 
         #To create the Isoconversional DataFrames interpolation is needed. 
         #In order to make the interpolation the x values must be strictly in ascending order.
