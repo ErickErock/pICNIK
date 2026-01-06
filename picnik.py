@@ -63,9 +63,6 @@ class DataExtraction:
         self.T0             = []              #list of experimental initial temperature in Kelvin
         self.t              = []              #list of experimental time
         self.alpha          = []              #list of experimental conversion
-        self.TempIsoDF      = pd.DataFrame()  #Isoconversional temperature DataFrame
-        self.timeIsoDF      = pd.DataFrame()  #Isoconversional time DataFrame
-        self.diffIsoDF      = pd.DataFrame()  #Isoconversional conversion rate DataFrame
         self.TempAdvIsoDF   = pd.DataFrame()  #Advanced isoconversional temperature DataFrame
         self.timeAdvIsoDF   = pd.DataFrame()  #Advanced isoconversional time DataFrame
         self.diffAdvIsoDF   = pd.DataFrame()  #Advanced isoconversional conversion rate DataFrame
@@ -456,9 +453,10 @@ class DataExtraction:
         da_dt = self.da_dt
         Beta  = self.Beta
         
-        TempAdvIsoDF = []   
-        timeAdvIsoDF = []
-        diffAdvIsoDF = []  
+        TempAdvIsoDF   = pd.DataFrame()  #Advanced isoconversional temperature DataFrame
+        timeAdvIsoDF   = pd.DataFrame()  #Advanced isoconversional time DataFrame
+        diffAdvIsoDF   = pd.DataFrame()  #Advanced isoconversional conversion rate DataFrame
+       
         print(f'Creating Isoconversion DataFrames...')
         
         adv_alps = np.arange(alpha[-1][0],alpha[-1][-1],d_a)
