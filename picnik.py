@@ -335,14 +335,15 @@ class DataExtraction:
                        Tf: List of final temperatures in Kelvin of the interval where the process to study is.
 
                        diff_smoother: String. Method to smooth the numerical derivative: Available options are 'SG'
-                                      for a Savitzky-Golay filter with a window on i% the lenght of the array and
-                                      cubic polynomial. Or 'Sp3' for a B cubic spline with smoothing parameter lambda=0.5.
+                                      for a Savitzky-Golay filter with a window of 1% or 10% the lenght of the array
+                                      and cubic polynomial. Or 'Sp3' for a B cubic spline with smoothing parameter 
+                                      lambda=0.5.
 
         Returns:       A plot of the temperature range to be used in the analysis.
                        
         """
-        DFlist = self.DFlis
-        NDFl = []
+        DFlist            = self.DFlis
+        NDFl              = []
         print(f'Computing conversion values...')
         for i in range(len(DFlist)):
             #filters the DataFrames based on the temperature limits
@@ -455,9 +456,9 @@ class DataExtraction:
         da_dt = self.da_dt
         Beta  = self.Beta
         
-        TempAdvIsoDF = self.TempAdvIsoDF   
-        timeAdvIsoDF = self.timeAdvIsoDF
-        diffAdvIsoDF = self.diffAdvIsoDF  
+        TempAdvIsoDF = []   
+        timeAdvIsoDF = []
+        diffAdvIsoDF = []  
         print(f'Creating Isoconversion DataFrames...')
         
         adv_alps = np.arange(alpha[-1][0],alpha[-1][-1],d_a)
